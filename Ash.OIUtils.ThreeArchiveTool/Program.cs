@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace Ash.OIUtils.ThreeArchiveTool
@@ -11,6 +12,8 @@ namespace Ash.OIUtils.ThreeArchiveTool
 	{
 		static void Main(string[] args)
 		{
+			WriteProgramHeader();
+
 			ProcessProgramArguments(args);
 
 			if ((args.Length == 0) || (args.Length == args.Count(x => x.StartsWith(Options.ShortOptionPrefix) || x.StartsWith(Options.LongOptionPrefix))))
@@ -22,6 +25,14 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			{
 				WaitForUserInput();
 			}
+		}
+
+		static void WriteProgramHeader()
+		{
+			FileVersionInfo fileVersionInfo = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location);
+
+			Console.Out.WriteLine("{0} v{1}", fileVersionInfo.ProductName, fileVersionInfo.FileVersion);
+			Console.Out.WriteLine();
 		}
 
 		static void WaitForUserInput()

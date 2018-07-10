@@ -460,9 +460,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				if (stream.Read(buffer, 0, 8) < 8) { throw new Exception("could not read file signature."); }
 				if (!buffer.Match(0, 8, Constants.PngFileSignature)) { throw new Exception("invalid file signature."); }
 
-				imageHeader = new ImageHeaderChunk();
-
-				imageHeader.Read(stream);
+				imageHeader = new ImageHeaderChunk(stream);
 			}
 			catch (Exception ex)
 			{
@@ -488,11 +486,16 @@ namespace Ash.OIUtils.ThreeArchiveTool
 	internal class Chunk
 	{
 		public bool IsValid { get; protected set; }
-		public uint DataLength { get; set; }
-		public virtual string Type { get; set; }
-		public uint Checksum { get; set; }
+		public uint DataLength { get; protected set; }
+		public virtual string Type { get; protected set; }
+		public uint Checksum { get; protected set; }
 
-		public int Read(Stream stream)
+		public Chunk(Stream stream)
+		{
+			Read(stream);
+		}
+
+		private int Read(Stream stream)
 		{
 			byte[] buffer = new byte[4];
 
@@ -534,14 +537,20 @@ namespace Ash.OIUtils.ThreeArchiveTool
 	{
 		private string type = "IHDR";
 
-		public override string Type { get => this.type; set => this.type = value; }
-		public int Width { get; set; }
-		public int Height { get; set; }
-		public int BitDepth { get; set; }
-		public int ColorType { get; set; }
-		public int CompressionMethod { get; set; }
-		public int FilterMethod { get; set; }
-		public int InterlaceMethod { get; set; }
+		public ImageHeaderChunk(Stream stream)
+			: base(stream)
+		{
+
+		}
+
+		public override string Type { get => this.type; protected set => this.type = value; }
+		public int Width { get; protected set; }
+		public int Height { get; protected set; }
+		public int BitDepth { get; protected set; }
+		public int ColorType { get; protected set; }
+		public int CompressionMethod { get; protected set; }
+		public int FilterMethod { get; protected set; }
+		public int InterlaceMethod { get; protected set; }
 
 		protected override bool ValidateType(string type)
 		{

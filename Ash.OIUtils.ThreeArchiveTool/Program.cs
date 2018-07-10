@@ -13,7 +13,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		{
 			ProcessProgramArguments(args);
 
-			if ((args.Length == 0) || (args.Length == args.Count(x => x.StartsWith("/"))))
+			if ((args.Length == 0) || (args.Length == args.Count(x => x.StartsWith(Options.ShortOptionPrefix) || x.StartsWith(Options.LongOptionPrefix))))
 			{
 				ProcessDirectUserInput();
 			}
@@ -62,7 +62,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 
 				try
 				{
-					if (arg.StartsWith("/"))
+					if (arg.StartsWith(Options.ShortOptionPrefix) || arg.StartsWith(Options.LongOptionPrefix))
 					{
 						ProcessOption(args, ref i);
 					}
@@ -88,96 +88,103 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			}
 		}
 
-		/// <example>
-		/// I prefer the "/verb=argument" syntax; but the more common "-verb argument" syntax
-		/// could be supported by simply doing this instead:
-		/// <code>
-		/// Options.InputPath = args[++argIndex];
-		/// </code>
-		/// </example>
 		static void ProcessOption(string[] args, ref int argIndex)
 		{
 			string arg = args[argIndex];
+			int length = 0;
 
-			if (arg.StartsWith("/help", StringComparison.InvariantCultureIgnoreCase))
+			if (TryMatchArgument(arg, "h", "help", out length))
 			{
 				Console.Out.WriteLine("");
-				Console.Out.WriteLine("[options...] <[file|directory]...>");
+				Console.Out.WriteLine("usage:");
+				Console.Out.WriteLine("");
+				Console.Out.WriteLine("  [options...] <[file|directory]...>");
 				Console.Out.WriteLine("");
 				//                     ....|....1....|....2....|....3....|....4....|....5....|....6....|....7....|....8
-				Console.Out.WriteLine("available options:");
-				Console.Out.WriteLine("  /inputPath=<pathname:string>");
+				Console.Out.WriteLine("options:");
+				Console.Out.WriteLine("");
+				Console.Out.WriteLine("  /i or /inputPath=<pathname:string>");
 				Console.Out.WriteLine("     Override input path (default: ``)");
-				Console.Out.WriteLine("  /outputPath=<pathname:string>");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /o or /outputPath=<pathname:string>");
 				Console.Out.WriteLine("     Override output path (default: `out`)");
-				Console.Out.WriteLine("  /filePattern=<pattern:string>");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /f or /filePattern=<pattern:string>");
 				Console.Out.WriteLine("     Override file pattern (default: `*.3`)");
-				Console.Out.WriteLine("  /directoryPattern=<pattern:string>");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /d or /directoryPattern=<pattern:string>");
 				Console.Out.WriteLine("     Override directory pattern (default: `*`)");
-				Console.Out.WriteLine("  /exportData=<enable:bool>");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /u or /exportData=<enable:bool>");
 				Console.Out.WriteLine("     Whether to export non PNG data (default: 0)");
-				Console.Out.WriteLine("  /exportSinglePixelImage=<enable:bool>");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /s or /exportSinglePixelImage=<enable:bool>");
 				Console.Out.WriteLine("     Whether to export single pixel PNG's (default: 0)");
-				Console.Out.WriteLine("  /preserveDirectoryStructure=<enable:bool>");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /t or /preserveDirectoryStructure=<enable:bool>");
 				Console.Out.WriteLine("     Preserve directory structure between input and output paths (default: 1)");
-				Console.Out.WriteLine("  /verbose=<level:int>");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /v or /verbose=<level:int>");
 				Console.Out.WriteLine("     Set the level of verbosity in message output (default: 3)");
 				Console.Out.WriteLine("     Where level is 0=none, 1=errors, 2=warnings, 3=traces, 4=debugging info");
-				Console.Out.WriteLine("  /quiet");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /q or /quiet");
 				Console.Out.WriteLine("     Suppress all message output");
-				Console.Out.WriteLine("  /waitForUserInput=<enable:bool>");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /w or /waitForUserInput=<enable:bool>");
 				Console.Out.WriteLine("     Whether to wait for user confirmation to exit the program (default: 1)");
 				Console.Out.WriteLine("");
 				Console.Out.WriteLine("examples:");
+				Console.Out.WriteLine("");
 				Console.Out.WriteLine("  \"file.3\"");
 				Console.Out.WriteLine("  /exportData=true \"file1.3\" \"file2.3\" \"file3.3\"");
 				Console.Out.WriteLine("  /filePattern=\"*.*\" /verbose=4 \"files\"");
 				Console.Out.WriteLine("  /outputPath=\"C:\\Users\\USER\\Pictures\\Albums\" /quiet \"Downloads\"");
 				Console.Out.WriteLine("");
 			}
-			else if (arg.StartsWith("/waitForUserInput", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "w", "waitForUserInput", out length))
 			{
-				ProcessArgument(arg, "/waitForUserInput".Length, ref Options.WaitForUserInput);
+				ProcessArgument(arg, length, ref Options.WaitForUserInput);
 			}
-			else if (arg.StartsWith("/quiet", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "q", "quiet", out length))
 			{
 				Options.VerboseLevel = 0;
 			}
-			else if (arg.StartsWith("/verbose", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "v", "verbose", out length))
 			{
-				ProcessArgument(arg, "/verbose".Length, ref Options.VerboseLevel);
+				ProcessArgument(arg, length, ref Options.VerboseLevel);
 			}
-			else if (arg.StartsWith("/inputPath", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "i", "inputPath", out length))
 			{
-				ProcessArgument(arg, "/inputPath".Length, ref Options.InputPath);
+				ProcessArgument(arg, length, ref Options.InputPath);
 				Options.InputPath = Options.InputPath.StripDoubleQuotes();
 			}
-			else if (arg.StartsWith("/outputPath", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "o", "outputPath", out length))
 			{
-				ProcessArgument(arg, "/outputPath".Length, ref Options.OutputPath);
+				ProcessArgument(arg, length, ref Options.OutputPath);
 				Options.OutputPath = Options.OutputPath.StripDoubleQuotes();
 			}
-			else if (arg.StartsWith("/filePattern", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "f", "filePattern", out length))
 			{
-				ProcessArgument(arg, "/filePattern".Length, ref Options.FilePattern);
+				ProcessArgument(arg, length, ref Options.FilePattern);
 				Options.FilePattern = Options.FilePattern.StripDoubleQuotes();
 			}
-			else if (arg.StartsWith("/directoryPattern", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "d", "directoryPattern", out length))
 			{
-				ProcessArgument(arg, "/directoryPattern".Length, ref Options.DirectoryPattern);
+				ProcessArgument(arg, length, ref Options.DirectoryPattern);
 				Options.DirectoryPattern = Options.DirectoryPattern.StripDoubleQuotes();
 			}
-			else if (arg.StartsWith("/exportData", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "u", "exportData", out length))
 			{
-				ProcessArgument(arg, "/exportData".Length, ref Options.ExportUnknownData);
+				ProcessArgument(arg, length, ref Options.ExportUnknownData);
 			}
-			else if (arg.StartsWith("/exportSinglePixelImage", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "s", "exportSinglePixelImage", out length))
 			{
-				ProcessArgument(arg, "/exportSinglePixelImage".Length, ref Options.ExportSinglePixelImage);
+				ProcessArgument(arg, length, ref Options.ExportSinglePixelImage);
 			}
-			else if (arg.StartsWith("/preserveDirectoryStructure", StringComparison.InvariantCultureIgnoreCase))
+			else if (TryMatchArgument(arg, "t", "preserveDirectoryStructure", out length))
 			{
-				ProcessArgument(arg, "/preserveDirectoryStructure".Length, ref Options.PreserveDirectoryStructure);
+				ProcessArgument(arg, length, ref Options.PreserveDirectoryStructure);
 			}
 			else
 			{
@@ -186,6 +193,29 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					Console.Error.WriteLine("*** error: unrecognized option `{0}`", arg);
 				}
 			}
+		}
+
+		static bool TryMatchArgument(string arg, string shortName, string longName, out int length)
+		{
+			string prefixedShortName = Options.ShortOptionPrefix + shortName;
+			string prefixedLongName = Options.LongOptionPrefix + longName;
+			StringComparison stringComparison = Options.IsOptionCaseSensitive ? StringComparison.InvariantCulture : StringComparison.InvariantCultureIgnoreCase;
+
+			if (arg.Equals(prefixedShortName, stringComparison) || arg.StartsWith(prefixedShortName + "=", stringComparison))
+			{
+				length = prefixedShortName.Length;
+			}
+			else if (arg.Equals(prefixedLongName, stringComparison) || arg.StartsWith(prefixedLongName + "=", stringComparison))
+			{
+				length = prefixedLongName.Length;
+			}
+			else
+			{
+				length = 0;
+				return false;
+			}
+
+			return true;
 		}
 
 		static void ProcessArgument(string arg, int startIndex, ref string destination)
@@ -203,6 +233,13 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			ProcessArgument(arg, startIndex, ref destination, x => x.ToBoolean());
 		}
 
+		/// <example>
+		/// I prefer the "/verb=argument" syntax; but to support the more common "-verb argument" syntax,
+		/// you can just replace the parameters:
+		/// <code>string arg, int startIndex</code> with <code>string[] args, ref int argIndex</code>
+		/// and the argument extraction:
+		/// <code>arg.Substring(startIndex + 1)</code> with <code>args[++argIndex]</code>.
+		/// </example>
 		static void ProcessArgument<TValue>(string arg, int startIndex, ref TValue destination, Func<string, TValue> converter)
 		{
 			if ((startIndex + 1) <= arg.Length)
@@ -734,5 +771,10 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		public static bool PreserveDirectoryStructure = true;
 		public static bool ExportUnknownData = false;
 		public static bool ExportSinglePixelImage = false;
+		// it's more common/standard to have those set to "-", "--", and true respectively.
+		// feel free to change it to whatever you prefer.
+		public static string ShortOptionPrefix = "/";
+		public static string LongOptionPrefix = "/";
+		public static bool IsOptionCaseSensitive = false;
 	}
 }

@@ -370,6 +370,15 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				return;
 			}
 
+			string pathFileExtension = Path.GetExtension(path);
+			bool isPngContainer = pathFileExtension.Equals(".3", StringComparison.InvariantCultureIgnoreCase);
+			bool isJpegContainer = pathFileExtension.Equals(".6", StringComparison.InvariantCultureIgnoreCase);
+
+			if (!isPngContainer && !isJpegContainer)
+			{
+				return;
+			}
+
 			byte[] buffer = new byte[4];
 
 			using (var inStream = new FileStream(path, FileMode.Open, FileAccess.Read))
@@ -394,7 +403,21 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				for (int i = 0; i < fileCount; ++i)
 				{
 					bool skip = false;
-					ImageHeaderChunk imageHeader = null;
+					PngImageHeaderChunk pngImageHeader = null;
+					JfifStartOfFrame0Segment jfifSof0 = null;
+					int imageWidth = 0;
+					int imageHeight = 0;
+
+					if (i != 0 && isPngContainer && TryPeekImageHeaderChunk(inStream, out pngImageHeader))
+					{
+						imageWidth = pngImageHeader.Width;
+						imageHeight = pngImageHeader.Height;
+					}
+					else if (i != 0 && isJpegContainer && TryPeekJfif(inStream, out jfifSof0))
+					{
+						imageWidth = jfifSof0.Width;
+						imageHeight = jfifSof0.Height;
+					}
 
 					if (i == 0 && !Options.ExportUnknownData)
 					{
@@ -402,15 +425,12 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					}
 					else if (!Options.ExportSinglePixelImage)
 					{
-						if (TryPeekImageHeaderChunk(inStream, out imageHeader))
+						if (imageWidth == 1 && imageHeight == 1)
 						{
-							if (imageHeader.Width == 1 && imageHeader.Height == 1)
-							{
-								skip = true;
+							skip = true;
 
-								StartFileProcessing(skip, fileCountLengthBase10, i, fileCount);
-								EndFileProcessing(imageHeader, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
-							}
+							StartFileProcessing(skip, fileCountLengthBase10, i, fileCount);
+							EndFileProcessing(pngImageHeader, jfifSof0, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
 						}
 					}
 
@@ -420,7 +440,9 @@ namespace Ash.OIUtils.ThreeArchiveTool
 						continue;
 					}
 
-					string destinationPath = BuildDestinationPath(path, rootPath, string.Concat(Path.GetFileNameWithoutExtension(path), "_", i.ToString(), i == 0 && Options.ExportUnknownData ? ".dat" : ".png"));
+					string destinationPath = BuildDestinationPath(path, rootPath, string.Concat(Path.GetFileNameWithoutExtension(path), "_", i.ToString(),
+						(pngImageHeader != null) ? ".png"
+						: (jfifSof0 != null) ? ".jpg" : ".dat"));
 
 					Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
 
@@ -430,7 +452,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 
 						inStream.SubCopyTo(outStream, fileLengths[i]);
 
-						EndFileProcessing(imageHeader, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
+						EndFileProcessing(pngImageHeader, jfifSof0, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
 					}
 				}
 			}
@@ -455,14 +477,24 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			}
 		}
 
-		static void EndFileProcessing(ImageHeaderChunk imageHeader, int startPosition, int fileLength, int fileCountLengthBase16)
+		static void EndFileProcessing(PngImageHeaderChunk pngImageHeader, JfifStartOfFrame0Segment jfifSof0, int startPosition, int fileLength, int fileCountLengthBase16)
 		{
 			if (Options.VerboseLevel >= 4)
 			{
-				if (imageHeader != null)
+				if (pngImageHeader != null)
 				{
-					Console.Out.Write("  {0,-4}  {1,-4}  {2,-2}  {3,-2}  {4,-2}  {5,-2}  {6,-2}",
-						imageHeader.Width, imageHeader.Height, imageHeader.BitDepth, imageHeader.ColorType, imageHeader.CompressionMethod, imageHeader.FilterMethod, imageHeader.InterlaceMethod);
+					Console.Out.Write(" PNG {0,-4}  {1,-4}  {2,-2}  {3,-2}  {4,-2}  {5,-2}  {6,-2}",
+						pngImageHeader.Width, pngImageHeader.Height, pngImageHeader.BitDepth, pngImageHeader.ColorType, pngImageHeader.CompressionMethod, pngImageHeader.FilterMethod, pngImageHeader.InterlaceMethod);
+				}
+				else if (jfifSof0 != null)
+				{
+					Console.Out.Write(" JPG {0,-2}  {1,-4}  {2,-4}",
+						jfifSof0.BitDepth, jfifSof0.Width, jfifSof0.Height);
+				}
+				else
+				{
+					// NOTE don't bother aligning it with the rest...
+					Console.Out.Write(" DAT");
 				}
 				if (Options.VerboseLevel >= 5)
 				{
@@ -507,7 +539,136 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			return destinationPath;
 		}
 
-		static bool TryPeekImageHeaderChunk(Stream stream, out ImageHeaderChunk imageHeader)
+
+		static bool TryPeekJfif(Stream stream, out JfifStartOfFrame0Segment startOfFrame0)
+		{
+			long position = stream.Position;
+
+			bool result = TryReadJfif(stream, out startOfFrame0);
+
+			stream.Seek(position, SeekOrigin.Begin);
+
+			return result;
+		}
+
+		static bool TryReadJfif(Stream stream, out JfifStartOfFrame0Segment startOfFrame0)
+		{
+			try
+			{
+				for (int i = 0; ; ++i)
+				{
+					byte marker = JfifSegment.ReadMarker(stream);
+					JfifSegment segment = null;
+
+					// note that the following two markers could be moved out of the loop,
+					// but I prefer to keep it here for cleaner code.
+					if (i == 0)
+					{
+						if (marker != JfifStartOfImageSegment.Constants.Marker) { throw new Exception("first marker is not start of image."); }
+					}
+					else if (i == 1)
+					{
+						if (marker != JfifApp0Segment.Constants.Marker) { throw new Exception("second marker is not app0."); }
+
+						try
+						{
+							segment = new JfifApp0Segment(stream, marker);
+						}
+						catch (Exception ex)
+						{
+							Console.Error.WriteLine("*** error: {0}", ex.Message);
+							throw new Exception("invalid app0 marker segment.");
+						}
+					}
+					else if (marker == JfifStartOfScanSegment.Constants.Marker)
+					{
+						// since we're looking for SOF's, we shouldn't have hit a SOS.
+						throw new Exception("unexpected start of scan.");
+					}
+					else if (marker == JfifEndOfImageSegment.Constants.Marker)
+					{
+						// since we're looking for SOF's, we shouldn't have hit a EOI.
+						throw new Exception("unexpected end of image.");
+					}
+					else if (marker == JfifStartOfFrame0Segment.Constants.Marker)
+					{
+						try
+						{
+							segment = new JfifStartOfFrame0Segment(stream, marker);
+
+							startOfFrame0 = (JfifStartOfFrame0Segment)segment;
+						}
+						catch (Exception ex)
+						{
+							Console.Error.WriteLine("*** error: {0}", ex.Message);
+							throw new Exception("invalid sof0 marker segment.");
+						}
+
+						break;
+					}
+					else if (marker == JfifStartOfFrame1Segment.Constants.Marker)
+					{
+						try
+						{
+							segment = new JfifStartOfFrame1Segment(stream, marker);
+
+							startOfFrame0 = (JfifStartOfFrame1Segment)segment;
+						}
+						catch (Exception ex)
+						{
+							Console.Error.WriteLine("*** error: {0}", ex.Message);
+							throw new Exception("invalid sof0 marker segment.");
+						}
+
+						break;
+					}
+					else if (marker == JfifStartOfFrame2Segment.Constants.Marker)
+					{
+						try
+						{
+							segment = new JfifStartOfFrame2Segment(stream, marker);
+
+							startOfFrame0 = (JfifStartOfFrame2Segment)segment;
+						}
+						catch (Exception ex)
+						{
+							Console.Error.WriteLine("*** error: {0}", ex.Message);
+							throw new Exception("invalid sof2 marker segment.");
+						}
+
+						break;
+					}
+					else
+					{
+						try
+						{
+							segment = new JfifSegment(stream, marker);
+						}
+						catch (Exception ex)
+						{
+							Console.Error.WriteLine("*** error: {0}", ex.Message);
+							throw new Exception("invalid unknown segment.");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				if (Options.VerboseLevel >= 5)
+				{
+					Console.Error.WriteLine("*** error: {0}", ex.Message);
+				}
+
+				startOfFrame0 = null;
+
+				return false;
+			}
+
+			return true;
+		}
+
+
+		static bool TryPeekImageHeaderChunk(Stream stream, out PngImageHeaderChunk imageHeader)
 		{
 			long position = stream.Position;
 
@@ -518,7 +679,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			return result;
 		}
 
-		static bool TryReadImageHeaderChunk(Stream stream, out ImageHeaderChunk imageHeader)
+		static bool TryReadImageHeaderChunk(Stream stream, out PngImageHeaderChunk imageHeader)
 		{
 			try
 			{
@@ -526,7 +687,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				if (stream.Read(buffer, 0, 8) < 8) { throw new Exception("could not read file signature."); }
 				if (!buffer.Match(0, 8, Constants.PngFileSignature)) { throw new Exception("invalid file signature."); }
 
-				imageHeader = new ImageHeaderChunk(stream);
+				imageHeader = new PngImageHeaderChunk(stream);
 			}
 			catch (Exception ex)
 			{
@@ -549,15 +710,17 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		}
 	}
 
-	internal class Chunk
+	internal class PngChunk
 	{
 		public bool IsValid { get; protected set; }
 		public uint DataLength { get; protected set; }
 		public string Type { get; protected set; }
 		public uint Checksum { get; protected set; }
 
-		public Chunk(Stream stream)
+		public PngChunk(Stream stream)
 		{
+			// note that it's bad design to have virtual calls in constructors
+			// but it should be fine in this small program.
 			Read(stream);
 		}
 
@@ -599,13 +762,17 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		}
 	}
 
-	internal class ImageHeaderChunk : Chunk
+	internal class PngImageHeaderChunk : PngChunk
 	{
-		private string type = "IHDR";
+		public class Constants
+		{
+			public static string Type = "IHDR";
+		}
 
-		public ImageHeaderChunk(Stream stream)
+		public PngImageHeaderChunk(Stream stream)
 			: base(stream)
 		{
+
 		}
 
 		public int Width { get; protected set; }
@@ -618,7 +785,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 
 		protected override bool ValidateType(string type)
 		{
-			return type.Equals(this.Type, StringComparison.Ordinal);
+			return type.Equals(Constants.Type, StringComparison.Ordinal);
 		}
 
 		protected override int ReadData(Stream stream, int dataLength)
@@ -655,6 +822,294 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			this.InterlaceMethod = interlaceMethod;
 
 			return dataLength;
+		}
+	}
+
+	internal class JfifSegment
+	{
+		public bool IsValid { get; protected set; }
+		public byte Marker { get; protected set; }
+		public virtual int DataLength { get; protected set; }
+
+		public JfifSegment(Stream stream, byte marker)
+		{
+			// note that it's bad design to have virtual calls in constructors
+			// but it should be fine in this small program.
+			Read(stream, marker);
+		}
+
+		static public byte ReadMarker(Stream stream)
+		{
+			byte[] buffer = new byte[2];
+			if (stream.Read(buffer, 0, 2) < 2) { throw new Exception("could not read marker."); }
+			if (buffer[0] != 0xFF) { throw new Exception("first byte of marker is not 0xFF."); }
+
+			return buffer[1];
+		}
+
+		private int Read(Stream stream, byte marker)
+		{
+			if (!this.ValidateMarker(marker)) { throw new Exception("invalid marker."); }
+
+			byte[] buffer = new byte[2];
+			if (stream.Read(buffer, 0, 2) < 2) { throw new Exception("failed to read marker length."); }
+			ushort dataLength = BitConverter.ToUInt16(buffer, 0).FromBigEndian();
+
+			if (this.ReadData(stream, dataLength) < dataLength - 2) { throw new Exception("failed to read data."); }
+
+			this.DataLength = dataLength;
+			this.Marker = marker;
+			this.IsValid = true;
+
+			return this.DataLength;
+		}
+
+		protected virtual bool ValidateMarker(byte type)
+		{
+			return true;
+		}
+
+		protected virtual int ReadData(Stream stream, int dataLength)
+		{
+			long currentPosition = stream.Position;
+			long newPosition = stream.Seek(dataLength - 2, SeekOrigin.Current);
+
+			return (int)(newPosition - currentPosition);
+		}
+	}
+
+	internal class JfifStartOfImageSegment : JfifSegment
+	{
+		public class Constants
+		{
+			public static byte Marker = 0xD8;
+		}
+
+		public JfifStartOfImageSegment(Stream stream, byte marker)
+			: base(stream, marker)
+		{
+		}
+
+		protected override bool ValidateMarker(byte marker)
+		{
+			return marker == Constants.Marker;
+		}
+	}
+
+	internal class JfifEndOfImageSegment : JfifSegment
+	{
+		public class Constants
+		{
+			public static byte Marker = 0x09;
+		}
+
+		public JfifEndOfImageSegment(Stream stream, byte marker)
+			: base(stream, marker)
+		{
+		}
+
+		protected override bool ValidateMarker(byte marker)
+		{
+			return marker == Constants.Marker;
+		}
+	}
+
+	internal class JfifStartOfScanSegment : JfifSegment
+	{
+		public class Constants
+		{
+			public static byte Marker = 0xDA;
+		}
+
+		// JfifSegment is currently hard-coded to read in a length field,
+		// which SOS segments do not have, so prevent any instantiation of this class.
+		private JfifStartOfScanSegment(Stream stream, byte marker)
+			: base(stream, marker)
+		{
+		}
+
+		protected override bool ValidateMarker(byte marker)
+		{
+			return marker == Constants.Marker;
+		}
+	}
+
+	internal class JfifApp0Segment : JfifSegment
+	{
+		public class Constants
+		{
+			public static byte Marker = 0xE0;
+			public static string Identifier = "JFIF";
+		}
+
+		public JfifApp0Segment(Stream stream, byte marker)
+			: base(stream, marker)
+		{
+		}
+
+		public string Identifier { get; protected set; }
+		public ushort Version { get; protected set; }
+		public byte PixelDensityUnits { get; protected set; }
+		public ushort HorizontalPixelDensity { get; protected set; }
+		public ushort VerticalPixelDensity { get; protected set; }
+		public byte HorizontalThumbnailPixelCount { get; protected set; }
+		public byte VerticalThumbnailPixelCount { get; protected set; }
+		public byte[] ThumbnailPixels { get; protected set; }
+
+		public byte MajorVersion { get => (byte)((this.Version >> 8) & 0xFF); }
+		public byte MinorVersion { get => (byte)(this.Version & 0xFF); }
+
+		protected override bool ValidateMarker(byte marker)
+		{
+			return marker == Constants.Marker;
+		}
+
+		protected override int ReadData(Stream stream, int dataLength)
+		{
+			byte[] buffer = new byte[8];
+
+			if (stream.Read(buffer, 0, 5) < 5) { throw new Exception("failed to read identifier."); }
+			string identifier = new string(Encoding.ASCII.GetChars(buffer, 0, 5));
+			if (identifier.Equals(Constants.Identifier, StringComparison.Ordinal)) { throw new Exception("invalid identifier."); }
+
+			if (stream.Read(buffer, 0, 2) < 2) { throw new Exception("failed to read version."); }
+			ushort version = BitConverter.ToUInt16(buffer, 0).FromBigEndian();
+
+			if (stream.Read(buffer, 0, 1) < 1) { throw new Exception("failed to read pixel density units."); }
+			byte pixelDensityUnits = buffer[0];
+
+			if (stream.Read(buffer, 0, 2) < 2) { throw new Exception("failed to read horizontal pixel density."); }
+			ushort horizontalPixelDensity = BitConverter.ToUInt16(buffer, 0).FromBigEndian();
+			if (horizontalPixelDensity == 0) { throw new Exception("horizontal pixel density is zero."); }
+
+			if (stream.Read(buffer, 0, 2) < 2) { throw new Exception("failed to read vertical pixel density."); }
+			ushort verticalPixelDensity = BitConverter.ToUInt16(buffer, 0).FromBigEndian();
+			if (verticalPixelDensity == 0) { throw new Exception("vertical pixel density is zero."); }
+
+			if (stream.Read(buffer, 0, 1) < 1) { throw new Exception("failed to read horizontal thumbnail pixel count."); }
+			byte horizontalThumbnailPixelCount = buffer[0];
+
+			if (stream.Read(buffer, 0, 1) < 1) { throw new Exception("failed to read vertical thumbnail pixel count."); }
+			byte verticalThumbnailPixelCount = buffer[0];
+
+			byte[] pixelBuffer = null;
+			if (horizontalThumbnailPixelCount != 0 && verticalThumbnailPixelCount != 0)
+			{
+				// not needed.
+				/*if (this.ReadThumbnailPixels)
+				{
+					pixelBuffer = new byte[horizontalThumbnailPixelCount * verticalThumbnailPixelCount * 3];
+					if (stream.Read(buffer, 0, pixelBuffer.Length) < pixelBuffer.Length) { throw new Exception("failed to read thumbnail pixels."); }
+				}
+				else
+				*/
+				{
+					long oldPosition = stream.Position;
+					long newPosition = stream.Seek(horizontalThumbnailPixelCount * verticalThumbnailPixelCount * 3, SeekOrigin.Current);
+					if (newPosition != (oldPosition + (horizontalThumbnailPixelCount * verticalThumbnailPixelCount * 3))) { throw new Exception("failed to skip thumbnail pixels."); }
+				}
+			}
+
+			this.Identifier = identifier;
+			this.Version = version;
+			this.PixelDensityUnits = pixelDensityUnits;
+			this.HorizontalPixelDensity = horizontalPixelDensity;
+			this.VerticalPixelDensity = verticalPixelDensity;
+			this.HorizontalThumbnailPixelCount = horizontalThumbnailPixelCount;
+			this.VerticalThumbnailPixelCount = verticalThumbnailPixelCount;
+			this.ThumbnailPixels = pixelBuffer;
+
+			return dataLength;
+		}
+	}
+
+	internal class JfifStartOfFrame0Segment : JfifSegment
+	{
+		public class Constants
+		{
+			public static byte Marker = 0xC0;
+		}
+
+		public JfifStartOfFrame0Segment(Stream stream, byte marker)
+			: base(stream, marker)
+		{
+
+		}
+
+		public byte BitDepth { get; protected set; }
+		public ushort Width { get; protected set; }
+		public ushort Height { get; protected set; }
+
+		protected override bool ValidateMarker(byte marker)
+		{
+			return marker == Constants.Marker;
+		}
+
+		protected override int ReadData(Stream stream, int dataLength)
+		{
+			byte[] buffer = new byte[8];
+
+			if (stream.Read(buffer, 0, 1) < 1) { throw new Exception("failed to read bit depth."); }
+			byte bitDepth = buffer[0];
+
+			if (stream.Read(buffer, 0, 2) < 2) { throw new Exception("failed to read height."); }
+			ushort height = BitConverter.ToUInt16(buffer, 0).FromBigEndian();
+			if (height == 0) { throw new Exception("height is zero."); }
+
+			if (stream.Read(buffer, 0, 2) < 2) { throw new Exception("failed to read width."); }
+			ushort width = BitConverter.ToUInt16(buffer, 0).FromBigEndian();
+			if (width == 0) { throw new Exception("width is zero."); }
+
+			// we don't care about the rest of the data, so just skip it.
+			long oldPosition = stream.Position;
+			long newPosition = stream.Seek(this.DataLength - 2 - (1 + 2 + 2), SeekOrigin.Current);
+			if (newPosition != (oldPosition + (this.DataLength - 2 - (1 + 2 + 2)))) { throw new Exception("failed to skip remaining data."); }
+
+			this.BitDepth = bitDepth;
+			this.Width = width;
+			this.Height = height;
+
+			return dataLength;
+		}
+	}
+
+	// TODO I can't find the specifications for SOF1 so for now, just assume it's the same as SOF0.
+	internal class JfifStartOfFrame1Segment : JfifStartOfFrame0Segment
+	{
+		public new class Constants
+		{
+			public static byte Marker = 0xC1;
+		}
+
+		public JfifStartOfFrame1Segment(Stream stream, byte marker)
+			: base(stream, marker)
+		{
+
+		}
+
+		protected override bool ValidateMarker(byte marker)
+		{
+			return marker == Constants.Marker;
+		}
+	}
+
+	// TODO I can't find the specifications for SOF2 so for now, just assume it's the same as SOF0.
+	internal class JfifStartOfFrame2Segment : JfifStartOfFrame0Segment
+	{
+		public new class Constants
+		{
+			public static byte Marker = 0xC2;
+		}
+
+		public JfifStartOfFrame2Segment(Stream stream, byte marker)
+			: base(stream, marker)
+		{
+
+		}
+
+		protected override bool ValidateMarker(byte marker)
+		{
+			return marker == Constants.Marker;
 		}
 	}
 
@@ -739,12 +1194,32 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			}
 		}
 
+		public static UInt16 FromBigEndian(this UInt16 value)
+		{
+			if (BitConverter.IsLittleEndian)
+			{
+				return ByteSwap(value);
+			}
+			else
+			{
+				return value;
+			}
+		}
+
 		public static UInt32 ByteSwap(UInt32 value)
 		{
 			return ((value & 0xFF) << 24)
 				| (((value >> 8) & 0xFF) << 16)
 				| (((value >> 16) & 0xFF) << 8)
 				| ((value >> 24) & 0xFF);
+		}
+
+		public static UInt16 ByteSwap(UInt16 value)
+		{
+			int a = value & 0xFF;
+			int b = (value >> 8) & 0xFF;
+
+			return (ushort)((a << 8) | b);
 		}
 	}
 

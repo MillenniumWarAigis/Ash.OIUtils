@@ -377,6 +377,8 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					return;
 				}
 
+				int fileCountLengthBase10 = CountLength(fileCount, 10);
+				int fileLengthLengthBase16 = CountLength((int)inStream.Length, 16);
 				int[] fileLengths = new int[fileCount];
 
 				for (int i = 0; i < fileCount; ++i)
@@ -384,8 +386,6 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					if (inStream.Read(buffer, 0, 4) < 4) { throw new Exception(string.Format("could not read length of file `{0}`.", i)); }
 					fileLengths[i] = (int)BitConverter.ToUInt32(buffer, 0).FromLittleEndian();
 				}
-
-				int counterLength = (fileCount < 10) ? 1 : (fileCount < 100) ? 2 : (fileCount < 1000) ? 3 : 4;
 
 				for (int i = 0; i < fileCount; ++i)
 				{
@@ -404,8 +404,8 @@ namespace Ash.OIUtils.ThreeArchiveTool
 							{
 								skip = true;
 
-								StartFileProcessing(skip, counterLength, i, fileCount);
-								EndFileProcessing(imageHeader, fileLengths[i]);
+								StartFileProcessing(skip, fileCountLengthBase10, i, fileCount);
+								EndFileProcessing(imageHeader, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
 							}
 						}
 					}
@@ -422,26 +422,36 @@ namespace Ash.OIUtils.ThreeArchiveTool
 
 					using (var outStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write))
 					{
-						StartFileProcessing(skip, counterLength, i, fileCount);
+						StartFileProcessing(skip, fileCountLengthBase10, i, fileCount);
 
 						inStream.SubCopyTo(outStream, fileLengths[i]);
 
-						EndFileProcessing(imageHeader, fileLengths[i]);
+						EndFileProcessing(imageHeader, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
 					}
 				}
 			}
 		}
 
-		static void StartFileProcessing(bool skip, int counterLength, int i, int fileCount)
+		static int CountLength(int value, int radix)
+		{
+			if (radix == 0) { throw new ArgumentException("radix is zero.", "radix"); }
+
+			int i = 0;
+			for (; value > 0; i++, value /= radix) { }
+
+			return i;
+		}
+
+		static void StartFileProcessing(bool skip, int fileCountLengthBase10, int i, int fileCount)
 		{
 			if (Options.VerboseLevel >= 4)
 			{
-				Console.Out.Write($"  {{0}}  {{1,{counterLength}}}/{{2,{counterLength}}}...",
+				Console.Out.Write($"  {{0}}  {{1,{fileCountLengthBase10}}}/{{2,{fileCountLengthBase10}}}...",
 					skip ? "<-  " : "  ->", i, fileCount - 1);
 			}
 		}
 
-		static void EndFileProcessing(ImageHeaderChunk imageHeader, int fileLength)
+		static void EndFileProcessing(ImageHeaderChunk imageHeader, int startPosition, int fileLength, int fileCountLengthBase16)
 		{
 			if (Options.VerboseLevel >= 4)
 			{
@@ -449,6 +459,10 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				{
 					Console.Out.Write("  {0,-4}  {1,-4}  {2,-2}  {3,-2}  {4,-2}  {5,-2}  {6,-2}",
 						imageHeader.Width, imageHeader.Height, imageHeader.BitDepth, imageHeader.ColorType, imageHeader.CompressionMethod, imageHeader.FilterMethod, imageHeader.InterlaceMethod);
+				}
+				if (Options.VerboseLevel >= 5)
+				{
+					Console.Out.Write($" [{{0:X{fileCountLengthBase16}}},{{1:X{fileCountLengthBase16}}}]", startPosition, startPosition + fileLength - 1);
 				}
 				Console.Out.WriteLine("  ({0} bytes)", fileLength);
 			}

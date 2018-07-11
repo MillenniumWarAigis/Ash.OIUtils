@@ -121,7 +121,8 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				Console.Out.WriteLine("     Override output path (default: `out`)");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /f or /filePattern=<pattern:string>");
-				Console.Out.WriteLine("     Override file pattern (default: `*.3`)");
+				Console.Out.WriteLine("     Override file pattern (default: `*.3|*.6`)");
+				Console.Out.WriteLine("     Use | to split multiple patterns");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /d or /directoryPattern=<pattern:string>");
 				Console.Out.WriteLine("     Override directory pattern (default: `*`)");
@@ -335,11 +336,14 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				return;
 			}
 
-			IEnumerable<string> files = Directory.EnumerateFiles(path, Options.FilePattern, SearchOption.TopDirectoryOnly);
-
-			foreach (string fileName in files)
+			foreach (string filePattern in Options.FilePattern.Split(new char[] { '|' }))
 			{
-				ProcessFile(fileName, rootPath);
+				IEnumerable<string> files = Directory.EnumerateFiles(path, filePattern, SearchOption.TopDirectoryOnly);
+
+				foreach (string fileName in files)
+				{
+					ProcessFile(fileName, rootPath);
+				}
 			}
 
 			IEnumerable<string> directories = Directory.EnumerateDirectories(path, Options.DirectoryPattern, SearchOption.TopDirectoryOnly);
@@ -789,7 +793,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		public static int VerboseLevel = 3;
 		public static string InputPath = "";
 		public static string OutputPath = "out";
-		public static string FilePattern = "*.3";
+		public static string FilePattern = "*.3|*.6";
 		public static string DirectoryPattern = "*";
 		public static bool PreserveDirectoryStructure = true;
 		public static bool ExportUnknownData = false;

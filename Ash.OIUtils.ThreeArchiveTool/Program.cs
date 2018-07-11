@@ -535,7 +535,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 	{
 		public bool IsValid { get; protected set; }
 		public uint DataLength { get; protected set; }
-		public virtual string Type { get; protected set; }
+		public string Type { get; protected set; }
 		public uint Checksum { get; protected set; }
 
 		public Chunk(Stream stream)
@@ -554,7 +554,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			string type = new string(Encoding.ASCII.GetChars(buffer, 0, 4));
 			if (!this.ValidateType(type)) { throw new Exception("invalid chunk type."); }
 
-			if (this.ReadData(stream, (int)dataLength) < this.DataLength) { throw new Exception("failed to read data."); }
+			if (this.ReadData(stream, (int)dataLength) < dataLength) { throw new Exception("failed to read data."); }
 
 			if (stream.Read(buffer, 0, 4) < 4) { throw new Exception("failed to read checksum."); }
 			uint checksum = BitConverter.ToUInt32(buffer, 0).FromBigEndian();
@@ -588,10 +588,8 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		public ImageHeaderChunk(Stream stream)
 			: base(stream)
 		{
-
 		}
 
-		public override string Type { get => this.type; protected set => this.type = value; }
 		public int Width { get; protected set; }
 		public int Height { get; protected set; }
 		public int BitDepth { get; protected set; }

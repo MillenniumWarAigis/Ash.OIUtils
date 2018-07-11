@@ -2,18 +2,18 @@
 
 # Usage
 
-Drop `.3` archive files or directories onto the program window or icon and it'll extract the files within it to the designated output folder (by default: `out`).
+Drop `.3` or `.6` archive files or directories onto the program window or icon and it'll extract the files within it to the designated output folder (by default: `out`).
 
-The first entry in most archives is not a PNG file. Its contents and file format is unknown. But if you still wish to extract it, use the option:
+The first file entry in most archives is not a `PNG` nor a `JPG` image. Its contents and file format is unknown. But if you still wish to extract it, use the option:
 
 ```console
-/exportData=true
+/u=true
 ```
 
-Most of the entries are 1 by 1 pixel PNG's. They're likely unused assets, but if you still wish to extract them, use the option:
+Most of the file entries are 1 by 1 pixel images. They're likely unused assets, but if you still wish to extract them, use the option:
 
 ```console
-/exportSinglePixelImage=true
+/s=true
 ```
 
 # Known Issues

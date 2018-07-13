@@ -121,7 +121,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				Console.Out.WriteLine("     Override output path (default: `out`)");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /f or /filePattern=<pattern:string>");
-				Console.Out.WriteLine("     Override file pattern (default: `*.3|*.6`)");
+				Console.Out.WriteLine("     Override file pattern (default: `*.0|*.1|*.2|*.3|*.4|*.5|*.6|*.7|*.8|*.9`)");
 				Console.Out.WriteLine("     Use | to split multiple patterns");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /d or /directoryPattern=<pattern:string>");
@@ -371,11 +371,15 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			}
 
 			string pathFileExtension = Path.GetExtension(path);
-			bool isThreeArchive = pathFileExtension.Equals(".3", StringComparison.InvariantCultureIgnoreCase);
-			bool IsSixArchive = pathFileExtension.Equals(".6", StringComparison.InvariantCultureIgnoreCase);
+			int archiveType = 0;
+			bool IsValidArchive = pathFileExtension.First() == '.' && int.TryParse(pathFileExtension.Substring(1), out archiveType);
 
-			if (!isThreeArchive && !IsSixArchive)
+			if (!IsValidArchive)
 			{
+				if (Options.VerboseLevel >= 6)
+				{
+					Console.Error.WriteLine("  skipping...");
+				}
 				return;
 			}
 
@@ -407,9 +411,9 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					JfifStartOfFrame0Segment jfifSof0 = null;
 					int imageWidth = 0;
 					int imageHeight = 0;
-					int checkPngOrderIndex = isThreeArchive ? 0 : 1;
+					int checkPngOrderIndex = (archiveType == 3 || archiveType == 7) ? 0 : 1;
 
-					// check for png's first in .3 files, and for .jpg first in .6 files.
+					// check for png's first in .3 & .7 files, and for .jpg first in .6 files.
 					for (int k = 0; k < 2; ++k)
 					{
 						if (k == checkPngOrderIndex && TryPeekImageHeaderChunk(inStream, out pngImageHeader))
@@ -1274,7 +1278,8 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		public static int VerboseLevel = 3;
 		public static string InputPath = "";
 		public static string OutputPath = "out";
-		public static string FilePattern = "*.3|*.6";
+		// TODO? maybe allow regular expressions to be specified instead of wildchar characters.
+		public static string FilePattern = "*.0|*.1|*.2|*.3|*.4|*.5|*.6|*.7|*.8|*.9";
 		public static string DirectoryPattern = "*";
 		public static bool PreserveDirectoryStructure = true;
 		public static bool ExportUnknownData = false;

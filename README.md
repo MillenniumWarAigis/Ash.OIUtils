@@ -1,4 +1,4 @@
-[![Latest Release](https://img.shields.io/badge/version-1.5.0-brightgreen.svg)](../../../Ash.OIUtils/releases) [![Build Status](https://travis-ci.org/MillenniumWarAigis/Ash.OIUtils.svg?branch=master)](https://travis-ci.org/MillenniumWarAigis/Ash.OIUtils) ![Console App Output](https://img.shields.io/badge/output-console_app-green.svg) ![.NET Framework](https://img.shields.io/badge/%2ENET_framework-4%2E5%2E2-green.svg) ![C# Language](https://img.shields.io/badge/language-C%23-yellow.svg) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+[![Latest Release](https://img.shields.io/badge/version-1.5.1-brightgreen.svg)](../../../Ash.OIUtils/releases) [![Build Status](https://travis-ci.org/MillenniumWarAigis/Ash.OIUtils.svg?branch=master)](https://travis-ci.org/MillenniumWarAigis/Ash.OIUtils) ![Console App Output](https://img.shields.io/badge/output-console_app-green.svg) ![.NET Framework](https://img.shields.io/badge/%2ENET_framework-4%2E5%2E2-green.svg) ![C# Language](https://img.shields.io/badge/language-C%23-yellow.svg) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
 # Usage
 

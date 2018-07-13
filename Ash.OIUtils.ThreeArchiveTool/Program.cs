@@ -133,6 +133,9 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				Console.Out.WriteLine("  /s or /exportSinglePixelImage=<enable:bool>");
 				Console.Out.WriteLine("     Whether to export single pixel PNG's (default: 0)");
 				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /e or /excludeImageSizes=<sizes:size_array>");
+				Console.Out.WriteLine("     Exclude images matching those exact dimensions (default: 1x1|4x4)");
+				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /t or /preserveDirectoryStructure=<enable:bool>");
 				Console.Out.WriteLine("     Preserve directory structure between input and output paths (default: 1)");
 				Console.Out.WriteLine();
@@ -198,6 +201,37 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			{
 				ProcessArgument(arg, length, ref Options.PreserveDirectoryStructure);
 			}
+			else if (TryMatchArgument(arg, "e", "excludeImageSizes", out length))
+			{
+				// quick hack per request!
+
+				StringBuilder sb = new StringBuilder();
+
+				for (int i = 0; i < Options.ExcludedImageWidths.Length; ++i)
+				{
+					if (i != 0) { sb.Append('|'); }
+					sb.AppendFormat("{0}x{1}", Options.ExcludedImageWidths[i], Options.ExcludedImageHeights[i]);
+				}
+
+				string value = sb.ToString();
+
+				ProcessArgument(arg, length, ref value);
+
+				string[] sizes = value.Split(new char[] { '|' });
+
+				Options.ExcludedImageWidths = new int[sizes.Length];
+				Options.ExcludedImageHeights = new int[sizes.Length];
+
+				for (int i = 0; i < sizes.Length; ++i)
+				{
+					string size = sizes[i];
+					string[] sizeComponents = sizes[i].Split(new char[] { 'x' });
+
+					Options.ExcludedImageWidths[i] = int.Parse(sizeComponents[0]);
+					Options.ExcludedImageWidths[i] = int.Parse(sizeComponents[1]);
+				}
+			}
+			
 			else
 			{
 				if (Options.VerboseLevel >= 1)
@@ -447,13 +481,14 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					}
 
 					if (i == 0 && !Options.ExportUnknownData
-						&& pngImageHeader != null && jfifSof0 != null && mp3Tag != null)
+						&& pngImageHeader == null && jfifSof0 == null && mp3Tag == null)
 					{
 						skip = true;
 					}
 					else if (!Options.ExportSinglePixelImage)
 					{
-						if (imageWidth == 1 && imageHeight == 1)
+						if (Options.ExcludedImageWidths.Contains(imageWidth)
+							&& Options.ExcludedImageHeights.Contains(imageHeight))
 						{
 							skip = true;
 
@@ -1357,6 +1392,8 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		public static bool PreserveDirectoryStructure = true;
 		public static bool ExportUnknownData = false;
 		public static bool ExportSinglePixelImage = false;
+		public static int[] ExcludedImageWidths = new int[] { 1, 4 };
+		public static int[] ExcludedImageHeights = new int[] { 1, 4 };
 		// it's more common/standard to have those set to "-", "--", and true respectively.
 		// feel free to change it to whatever you prefer.
 		public static string ShortOptionPrefix = "/";

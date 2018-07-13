@@ -409,28 +409,45 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					bool skip = false;
 					PngImageHeaderChunk pngImageHeader = null;
 					JfifStartOfFrame0Segment jfifSof0 = null;
+					Mp3Tag mp3Tag = null;
 					int imageWidth = 0;
 					int imageHeight = 0;
-					int checkPngOrderIndex = (archiveType != 6) ? 0 : 1;
-
-					// check for png's first in .3, .4, .5, .7 files, and for .jpg first in .6 files.
-					for (int k = 0; k < 2; ++k)
+					int[] checkOrder;
+					if (archiveType == 1)
 					{
-						if (k == checkPngOrderIndex && TryPeekImageHeaderChunk(inStream, out pngImageHeader))
+						checkOrder = new int[] { 2, 0, 1 };
+					}
+					else if (archiveType == 6)
+					{
+						checkOrder = new int[] { 1, 0, 2 };
+					}
+					else
+					{
+						checkOrder = new int[] { 0, 1, 2 };
+					}
+
+					for (int k = 0; k < 3; ++k)
+					{
+						if (checkOrder[k] == 0 && TryPeekPngImageHeaderChunk(inStream, out pngImageHeader))
 						{
 							imageWidth = pngImageHeader.Width;
 							imageHeight = pngImageHeader.Height;
 							break;
 						}
-						else if (k != checkPngOrderIndex && TryPeekJfif(inStream, out jfifSof0))
+						else if (checkOrder[k] == 1 && TryPeekJfif(inStream, out jfifSof0))
 						{
 							imageWidth = jfifSof0.Width;
 							imageHeight = jfifSof0.Height;
 							break;
 						}
+						else if (checkOrder[k] == 2 && TryPeekMp3Header(inStream, out mp3Tag))
+						{
+							break;
+						}
 					}
 
-					if (i == 0 && !Options.ExportUnknownData)
+					if (i == 0 && !Options.ExportUnknownData
+						&& pngImageHeader != null && jfifSof0 != null && mp3Tag != null)
 					{
 						skip = true;
 					}
@@ -441,7 +458,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 							skip = true;
 
 							StartFileProcessing(skip, fileCountLengthBase10, i, fileCount);
-							EndFileProcessing(pngImageHeader, jfifSof0, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
+							EndFileProcessing(pngImageHeader, jfifSof0, mp3Tag, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
 						}
 					}
 
@@ -453,7 +470,9 @@ namespace Ash.OIUtils.ThreeArchiveTool
 
 					string destinationPath = BuildDestinationPath(path, rootPath, string.Concat(Path.GetFileNameWithoutExtension(path), "_", i.ToString(),
 						(pngImageHeader != null) ? ".png"
-						: (jfifSof0 != null) ? ".jpg" : ".dat"));
+						: (jfifSof0 != null) ? ".jpg"
+						: (mp3Tag != null) ? ".mp3"
+						: ".dat"));
 
 					Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
 
@@ -463,7 +482,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 
 						inStream.SubCopyTo(outStream, fileLengths[i]);
 
-						EndFileProcessing(pngImageHeader, jfifSof0, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
+						EndFileProcessing(pngImageHeader, jfifSof0, mp3Tag, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
 					}
 				}
 			}
@@ -488,7 +507,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			}
 		}
 
-		static void EndFileProcessing(PngImageHeaderChunk pngImageHeader, JfifStartOfFrame0Segment jfifSof0, int startPosition, int fileLength, int fileCountLengthBase16)
+		static void EndFileProcessing(PngImageHeaderChunk pngImageHeader, JfifStartOfFrame0Segment jfifSof0, Mp3Tag mp3Tag, int startPosition, int fileLength, int fileCountLengthBase16)
 		{
 			if (Options.VerboseLevel >= 4)
 			{
@@ -501,6 +520,10 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				{
 					Console.Out.Write(" JPG {0,-4}  {1,-4}  {2,-2}  {3,-14}",
 						jfifSof0.Width, jfifSof0.Height, jfifSof0.BitDepth, " ");
+				}
+				else if (mp3Tag != null)
+				{
+					Console.Out.Write(" MP3 {0,-30}", " ");
 				}
 				else
 				{
@@ -677,27 +700,26 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			return true;
 		}
 
-
-		static bool TryPeekImageHeaderChunk(Stream stream, out PngImageHeaderChunk imageHeader)
+		static bool TryPeekPngImageHeaderChunk(Stream stream, out PngImageHeaderChunk pngImageHeader)
 		{
 			long position = stream.Position;
 
-			bool result = TryReadImageHeaderChunk(stream, out imageHeader);
+			bool result = TryReadPngImageHeaderChunk(stream, out pngImageHeader);
 
 			stream.Seek(position, SeekOrigin.Begin);
 
 			return result;
 		}
 
-		static bool TryReadImageHeaderChunk(Stream stream, out PngImageHeaderChunk imageHeader)
+		static bool TryReadPngImageHeaderChunk(Stream stream, out PngImageHeaderChunk pngImageHeader)
 		{
 			try
 			{
 				byte[] buffer = new byte[8];
-				if (stream.Read(buffer, 0, 8) < 8) { throw new Exception("could not read file signature."); }
-				if (!buffer.Match(0, 8, Constants.PngFileSignature)) { throw new Exception("invalid file signature."); }
+				if (stream.Read(buffer, 0, 8) < 8) { throw new Exception("could not read png file signature."); }
+				if (!buffer.Match(0, 8, Constants.PngFileSignature)) { throw new Exception("invalid png file signature."); }
 
-				imageHeader = new PngImageHeaderChunk(stream);
+				pngImageHeader = new PngImageHeaderChunk(stream);
 			}
 			catch (Exception ex)
 			{
@@ -706,7 +728,43 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					Console.Error.WriteLine("*** error: {0}", ex.Message);
 				}
 
-				imageHeader = null;
+				pngImageHeader = null;
+
+				return false;
+			}
+
+			return true;
+		}
+
+		static bool TryPeekMp3Header(Stream stream, out Mp3Tag mp3Tag)
+		{
+			long position = stream.Position;
+
+			bool result = TryReadMp3HeaderChunk(stream, out mp3Tag);
+
+			stream.Seek(position, SeekOrigin.Begin);
+
+			return result;
+		}
+
+		static bool TryReadMp3HeaderChunk(Stream stream, out Mp3Tag mp3Tag)
+		{
+			try
+			{
+				byte[] buffer = new byte[3];
+				if (stream.Read(buffer, 0, 3) < 3) { throw new Exception("could not read mp3 file signature."); }
+				if (!buffer.Match(0, 3, Constants.Mp3FileSignature)) { throw new Exception("invalid mp3 file signature."); }
+
+				mp3Tag = new Mp3Tag(stream);
+			}
+			catch (Exception ex)
+			{
+				if (Options.VerboseLevel >= 5)
+				{
+					Console.Error.WriteLine("*** error: {0}", ex.Message);
+				}
+
+				mp3Tag = null;
 
 				return false;
 			}
@@ -717,6 +775,21 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		internal static class Constants
 		{
 			public static readonly byte[] PngFileSignature = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
+			public static readonly byte[] Mp3FileSignature = { 0x49, 0x44, 0x33 };
+		}
+	}
+
+	// dummy class, let's not bother outputting any info about it.
+	internal class Mp3Tag
+	{
+		public Mp3Tag(Stream stream)
+		{
+			Read(stream);
+		}
+
+		private int Read(Stream stream)
+		{
+			return 0;
 		}
 	}
 

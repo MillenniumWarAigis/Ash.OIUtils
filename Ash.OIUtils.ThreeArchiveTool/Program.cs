@@ -411,9 +411,9 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					JfifStartOfFrame0Segment jfifSof0 = null;
 					int imageWidth = 0;
 					int imageHeight = 0;
-					int checkPngOrderIndex = (archiveType == 3 || archiveType == 7) ? 0 : 1;
+					int checkPngOrderIndex = (archiveType != 6) ? 0 : 1;
 
-					// check for png's first in .3 & .7 files, and for .jpg first in .6 files.
+					// check for png's first in .3, .4, .5, .7 files, and for .jpg first in .6 files.
 					for (int k = 0; k < 2; ++k)
 					{
 						if (k == checkPngOrderIndex && TryPeekImageHeaderChunk(inStream, out pngImageHeader))

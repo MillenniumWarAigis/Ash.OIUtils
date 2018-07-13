@@ -2,7 +2,7 @@
 
 # Usage
 
-Drop `.3`, `.6`, and `.7` archive files or directories onto the program window or icon and it'll extract the files within it to the designated output folder (by default: `out`).
+Drop `.3`, `.4`, `.5`, `.6`, and `.7` archive files or directories onto the program window or icon and it'll extract the files within it to the designated output folder (by default: `out`).
 
 The first file entry in most archives is not a `PNG` nor a `JPG` image. Its contents and file format is unknown. But if you still wish to extract it, use the option:
 

@@ -371,10 +371,10 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			}
 
 			string pathFileExtension = Path.GetExtension(path);
-			bool isPngContainer = pathFileExtension.Equals(".3", StringComparison.InvariantCultureIgnoreCase);
-			bool isJpegContainer = pathFileExtension.Equals(".6", StringComparison.InvariantCultureIgnoreCase);
+			bool isThreeArchive = pathFileExtension.Equals(".3", StringComparison.InvariantCultureIgnoreCase);
+			bool IsSixArchive = pathFileExtension.Equals(".6", StringComparison.InvariantCultureIgnoreCase);
 
-			if (!isPngContainer && !isJpegContainer)
+			if (!isThreeArchive && !IsSixArchive)
 			{
 				return;
 			}
@@ -407,16 +407,23 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					JfifStartOfFrame0Segment jfifSof0 = null;
 					int imageWidth = 0;
 					int imageHeight = 0;
+					int checkPngOrderIndex = isThreeArchive ? 0 : 1;
 
-					if (i != 0 && isPngContainer && TryPeekImageHeaderChunk(inStream, out pngImageHeader))
+					// check for png's first in .3 files, and for .jpg first in .6 files.
+					for (int k = 0; k < 2; ++k)
 					{
-						imageWidth = pngImageHeader.Width;
-						imageHeight = pngImageHeader.Height;
-					}
-					else if (i != 0 && isJpegContainer && TryPeekJfif(inStream, out jfifSof0))
-					{
-						imageWidth = jfifSof0.Width;
-						imageHeight = jfifSof0.Height;
+						if (k == checkPngOrderIndex && TryPeekImageHeaderChunk(inStream, out pngImageHeader))
+						{
+							imageWidth = pngImageHeader.Width;
+							imageHeight = pngImageHeader.Height;
+							break;
+						}
+						else if (k != checkPngOrderIndex && TryPeekJfif(inStream, out jfifSof0))
+						{
+							imageWidth = jfifSof0.Width;
+							imageHeight = jfifSof0.Height;
+							break;
+						}
 					}
 
 					if (i == 0 && !Options.ExportUnknownData)
@@ -488,13 +495,12 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				}
 				else if (jfifSof0 != null)
 				{
-					Console.Out.Write(" JPG {0,-2}  {1,-4}  {2,-4}",
-						jfifSof0.BitDepth, jfifSof0.Width, jfifSof0.Height);
+					Console.Out.Write(" JPG {0,-4}  {1,-4}  {2,-2}  {3,-14}",
+						jfifSof0.Width, jfifSof0.Height, jfifSof0.BitDepth, " ");
 				}
 				else
 				{
-					// NOTE don't bother aligning it with the rest...
-					Console.Out.Write(" DAT");
+					Console.Out.Write(" DAT {0,-30}", " ");
 				}
 				if (Options.VerboseLevel >= 5)
 				{

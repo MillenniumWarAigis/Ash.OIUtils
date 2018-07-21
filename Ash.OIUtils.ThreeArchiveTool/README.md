@@ -53,23 +53,3 @@ it will output something like this:
 ## Known Issues
 
 - Relative link operands, such as `./` and `../`, are likely not supported.
-
----
-
-# Osawari Island HTTP Server Response Decoder
-
-## Description
-
-This command line program can decode HTTP responses received from the game server.
-
-## Usage
-
-Save the response to a text file and drop it onto the program.
-
-## Notes
-
-A `DES key` is required to decrypt the response, you can specify one with the option:
-
-```console
-/x=TYPE_THE_KEY_HERE
-```

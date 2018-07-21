@@ -128,10 +128,10 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				Console.Out.WriteLine("     Override directory pattern (default: `*`)");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /u or /exportData=<enable:bool>");
-				Console.Out.WriteLine("     Whether to export non PNG data (default: 0)");
+				Console.Out.WriteLine("     Whether to export non unknown data entries (default: 0)");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /s or /exportSinglePixelImage=<enable:bool>");
-				Console.Out.WriteLine("     Whether to export single pixel PNG's (default: 0)");
+				Console.Out.WriteLine("     Whether to export single pixel images (default: 0)");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /e or /excludeImageSizes=<sizes:size_array>");
 				Console.Out.WriteLine("     Exclude images matching those exact dimensions (default: 1x1|4x4)");
@@ -139,7 +139,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				Console.Out.WriteLine("  /x or /password=<enable:string>");
 				Console.Out.WriteLine("     Sets the decryption key (required to decrypt first data entry)");
 				Console.Out.WriteLine();
-				Console.Out.WriteLine("        /prettify=<enable:string>");
+				Console.Out.WriteLine("        /prettify=<enable:bool>");
 				Console.Out.WriteLine("     Whether to format the json output (default: 1)");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /t or /preserveDirectoryStructure=<enable:bool>");

@@ -136,6 +136,12 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				Console.Out.WriteLine("  /e or /excludeImageSizes=<sizes:size_array>");
 				Console.Out.WriteLine("     Exclude images matching those exact dimensions (default: 1x1|4x4)");
 				Console.Out.WriteLine();
+				Console.Out.WriteLine("  /x or /password=<enable:string>");
+				Console.Out.WriteLine("     Sets the decryption key (required to decrypt first data entry)");
+				Console.Out.WriteLine();
+				Console.Out.WriteLine("        /prettify=<enable:string>");
+				Console.Out.WriteLine("     Whether to format the json output (default: 1)");
+				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /t or /preserveDirectoryStructure=<enable:bool>");
 				Console.Out.WriteLine("     Preserve directory structure between input and output paths (default: 1)");
 				Console.Out.WriteLine();
@@ -201,6 +207,14 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			{
 				ProcessArgument(arg, length, ref Options.PreserveDirectoryStructure);
 			}
+			else if (TryMatchArgument(arg, "x", "password", out length))
+			{
+				ProcessArgument(arg, length, ref Options.DataEncryptionKey);
+			}
+			else if (TryMatchArgument(arg, "", "prettify", out length))
+			{
+				ProcessArgument(arg, length, ref Options.PrettifyJson);
+			}
 			else if (TryMatchArgument(arg, "e", "excludeImageSizes", out length))
 			{
 				// quick hack per request!
@@ -231,7 +245,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					Options.ExcludedImageWidths[i] = int.Parse(sizeComponents[1]);
 				}
 			}
-			
+
 			else
 			{
 				if (Options.VerboseLevel >= 1)
@@ -247,11 +261,11 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			string prefixedLongName = Options.LongOptionPrefix + longName;
 			StringComparison stringComparison = Options.IsOptionCaseSensitive ? StringComparison.InvariantCulture : StringComparison.InvariantCultureIgnoreCase;
 
-			if (arg.Equals(prefixedShortName, stringComparison) || arg.StartsWith(prefixedShortName + "=", stringComparison))
+			if (!string.IsNullOrEmpty(prefixedShortName) && (arg.Equals(prefixedShortName, stringComparison) || arg.StartsWith(prefixedShortName + "=", stringComparison)))
 			{
 				length = prefixedShortName.Length;
 			}
-			else if (arg.Equals(prefixedLongName, stringComparison) || arg.StartsWith(prefixedLongName + "=", stringComparison))
+			else if (!string.IsNullOrEmpty(prefixedLongName) && (arg.Equals(prefixedLongName, stringComparison) || arg.StartsWith(prefixedLongName + "=", stringComparison)))
 			{
 				length = prefixedLongName.Length;
 			}
@@ -444,44 +458,60 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					PngImageHeaderChunk pngImageHeader = null;
 					JfifStartOfFrame0Segment jfifSof0 = null;
 					Mp3Tag mp3Tag = null;
+					string json = null;
 					int imageWidth = 0;
 					int imageHeight = 0;
 					int[] checkOrder;
 					if (archiveType == 1)
 					{
-						checkOrder = new int[] { 2, 0, 1 };
+						checkOrder = new int[] { 2, 0, 1, 3 };
 					}
 					else if (archiveType == 6)
 					{
-						checkOrder = new int[] { 1, 0, 2 };
+						checkOrder = new int[] { 1, 0, 2, 3 };
 					}
 					else
 					{
-						checkOrder = new int[] { 0, 1, 2 };
+						checkOrder = new int[] { 0, 1, 2, 3 };
 					}
 
-					for (int k = 0; k < 3; ++k)
+					// archive 1 and 8 don't have any json.
+					// archive 2 has a couple of json but mainly png's
+					// others have only 1 json as the first entry.
+					if (i == 0 && archiveType != 1 && archiveType != 8)
 					{
-						if (checkOrder[k] == 0 && TryPeekPngImageHeaderChunk(inStream, out pngImageHeader))
+						TryPeekOrReadJson(inStream, fileLengths[i], Options.DataEncryptionKey, out json);
+					}
+
+					if (json == null)
+					{
+						for (int k = 0; k < checkOrder.Length; ++k)
 						{
-							imageWidth = pngImageHeader.Width;
-							imageHeight = pngImageHeader.Height;
-							break;
-						}
-						else if (checkOrder[k] == 1 && TryPeekJfif(inStream, out jfifSof0))
-						{
-							imageWidth = jfifSof0.Width;
-							imageHeight = jfifSof0.Height;
-							break;
-						}
-						else if (checkOrder[k] == 2 && TryPeekMp3Header(inStream, out mp3Tag))
-						{
-							break;
+							if (checkOrder[k] == 0 && TryPeekPngImageHeaderChunk(inStream, out pngImageHeader))
+							{
+								imageWidth = pngImageHeader.Width;
+								imageHeight = pngImageHeader.Height;
+								break;
+							}
+							else if (checkOrder[k] == 1 && TryPeekJfif(inStream, out jfifSof0))
+							{
+								imageWidth = jfifSof0.Width;
+								imageHeight = jfifSof0.Height;
+								break;
+							}
+							else if (checkOrder[k] == 2 && TryPeekMp3Header(inStream, out mp3Tag))
+							{
+								break;
+							}
+							else if (checkOrder[k] == 3 && TryPeekOrReadJson(inStream, fileLengths[i], Options.DataEncryptionKey, out json))
+							{
+								break;
+							}
 						}
 					}
 
 					if (i == 0 && !Options.ExportUnknownData
-						&& pngImageHeader == null && jfifSof0 == null && mp3Tag == null)
+						&& json == null && pngImageHeader == null && jfifSof0 == null && mp3Tag == null)
 					{
 						skip = true;
 					}
@@ -493,7 +523,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 							skip = true;
 
 							StartFileProcessing(skip, fileCountLengthBase10, i, fileCount);
-							EndFileProcessing(pngImageHeader, jfifSof0, mp3Tag, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
+							EndFileProcessing(json, pngImageHeader, jfifSof0, mp3Tag, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
 						}
 					}
 
@@ -507,6 +537,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 						(pngImageHeader != null) ? ".png"
 						: (jfifSof0 != null) ? ".jpg"
 						: (mp3Tag != null) ? ".mp3"
+						: (json != null) ? ".json"
 						: ".dat"));
 
 					Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
@@ -515,9 +546,24 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					{
 						StartFileProcessing(skip, fileCountLengthBase10, i, fileCount);
 
-						inStream.SubCopyTo(outStream, fileLengths[i]);
+						if (json != null)
+						{
+							if (Options.PrettifyJson)
+							{
+								try { json = json.PrettifyJson(); }
+								catch (Exception) { }
+							}
 
-						EndFileProcessing(pngImageHeader, jfifSof0, mp3Tag, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
+							byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+
+							outStream.Write(jsonBytes, 0, jsonBytes.Length);
+						}
+						else
+						{
+							inStream.SubCopyTo(outStream, fileLengths[i]);
+						}
+
+						EndFileProcessing(json, pngImageHeader, jfifSof0, mp3Tag, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
 					}
 				}
 			}
@@ -542,7 +588,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			}
 		}
 
-		static void EndFileProcessing(PngImageHeaderChunk pngImageHeader, JfifStartOfFrame0Segment jfifSof0, Mp3Tag mp3Tag, int startPosition, int fileLength, int fileCountLengthBase16)
+		static void EndFileProcessing(string json, PngImageHeaderChunk pngImageHeader, JfifStartOfFrame0Segment jfifSof0, Mp3Tag mp3Tag, int startPosition, int fileLength, int fileCountLengthBase16)
 		{
 			if (Options.VerboseLevel >= 4)
 			{
@@ -559,6 +605,10 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				else if (mp3Tag != null)
 				{
 					Console.Out.Write(" MP3 {0,-30}", " ");
+				}
+				else if (json != null)
+				{
+					Console.Out.Write(" JSON{0,-30}", " ");
 				}
 				else
 				{
@@ -607,6 +657,61 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			return destinationPath;
 		}
 
+
+		static bool TryPeekOrReadJson(Stream stream, int length, string key, out string json)
+		{
+			long position = stream.Position;
+			bool result = false;
+
+			try
+			{
+				ValidateKey(key);
+
+				json = DecodeJson(stream, length, key);
+				result = true;
+			}
+			catch (Exception ex)
+			{
+				if (Options.VerboseLevel >= 5)
+				{
+					Console.Error.WriteLine("*** error: {0}", ex.Message);
+				}
+
+				json = null;
+				stream.Seek(position, SeekOrigin.Begin);
+			}
+
+			return result;
+		}
+
+		static string DecodeJson(Stream stream, int length, string key)
+		{
+			byte[] buffer = new byte[length];
+			if (stream.Read(buffer, 0, length) < length) { throw new Exception("could not read json data."); }
+
+			byte[] keyBytes = Encoding.UTF8.GetBytes(key);
+			byte[] decryptedBytes = DesDecrypt(buffer, keyBytes);
+			string output = Encoding.UTF8.GetString(decryptedBytes, 0, decryptedBytes.Length);
+
+			return output;
+		}
+
+		static byte[] DesDecrypt(byte[] input, byte[] key)
+		{
+			byte[] output = new byte[input.Length];
+
+			for (int i = 0; i < input.Length; ++i)
+			{
+				output[i] = (byte)((input[i] ^ key[i % key.Length]) & 0xFF);
+			}
+
+			return output;
+		}
+
+		static void ValidateKey(string key)
+		{
+			if (string.IsNullOrEmpty(key)) { throw new Exception("data cannot be decrypted without a key. Please specify one with /x"); }
+		}
 
 		static bool TryPeekJfif(Stream stream, out JfifStartOfFrame0Segment startOfFrame0)
 		{
@@ -1378,6 +1483,26 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				return value;
 			}
 		}
+
+		public static string JsonIndentString = "    ";
+
+		// https://stackoverflow.com/questions/4580397/json-formatter-in-c
+		public static string PrettifyJson(this string json)
+		{
+			int indentation = 0;
+			int quoteCount = 0;
+			var result =
+				from ch in json
+				let quotes = ch == '"' ? quoteCount++ : quoteCount
+				let lineBreak = ch == ',' && quotes % 2 == 0 ? ch + Environment.NewLine + String.Concat(Enumerable.Repeat(JsonIndentString, indentation)) : null
+				let openChar = ch == '{' || ch == '[' ? ch + Environment.NewLine + String.Concat(Enumerable.Repeat(JsonIndentString, ++indentation)) : ch.ToString()
+				let closeChar = ch == '}' || ch == ']' ? Environment.NewLine + String.Concat(Enumerable.Repeat(JsonIndentString, --indentation)) + ch : ch.ToString()
+				select lineBreak ?? (openChar.Length > 1
+								? openChar
+								: closeChar);
+
+			return String.Concat(result);
+		}
 	}
 
 	internal static class Options
@@ -1386,14 +1511,15 @@ namespace Ash.OIUtils.ThreeArchiveTool
 		public static int VerboseLevel = 3;
 		public static string InputPath = "";
 		public static string OutputPath = "out";
-		// TODO? maybe allow regular expressions to be specified instead of wildchar characters.
-		public static string FilePattern = "*.0|*.1|*.2|*.3|*.4|*.5|*.6|*.7|*.8|*.9";
+		public static string FilePattern = "*.1|*.2|*.3|*.4|*.5|*.6|*.7|*.8";
 		public static string DirectoryPattern = "*";
 		public static bool PreserveDirectoryStructure = true;
 		public static bool ExportUnknownData = false;
 		public static bool ExportSinglePixelImage = false;
 		public static int[] ExcludedImageWidths = new int[] { 1, 4 };
 		public static int[] ExcludedImageHeights = new int[] { 1, 4 };
+		public static string DataEncryptionKey = "";
+		public static bool PrettifyJson = true;
 		// it's more common/standard to have those set to "-", "--", and true respectively.
 		// feel free to change it to whatever you prefer.
 		public static string ShortOptionPrefix = "/";

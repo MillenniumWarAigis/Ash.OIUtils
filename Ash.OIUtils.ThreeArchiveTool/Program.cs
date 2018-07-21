@@ -126,6 +126,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /d or /directoryPattern=<pattern:string>");
 				Console.Out.WriteLine("     Override directory pattern (default: `*`)");
+				Console.Out.WriteLine("     Use | to split multiple patterns");
 				Console.Out.WriteLine();
 				Console.Out.WriteLine("  /u or /exportData=<enable:bool>");
 				Console.Out.WriteLine("     Whether to export non unknown data entries (default: 0)");
@@ -394,11 +395,14 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				}
 			}
 
-			IEnumerable<string> directories = Directory.EnumerateDirectories(path, Options.DirectoryPattern, SearchOption.TopDirectoryOnly);
-
-			foreach (string directoryName in directories)
+			foreach (string directoryPattern in Options.DirectoryPattern.Split(new char[] { '|' }))
 			{
-				ProcessDirectory(directoryName, rootPath);
+				IEnumerable<string> directories = Directory.EnumerateDirectories(path, directoryPattern, SearchOption.TopDirectoryOnly);
+
+				foreach (string directoryName in directories)
+				{
+					ProcessDirectory(directoryName, rootPath);
+				}
 			}
 		}
 

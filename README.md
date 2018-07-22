@@ -1,4 +1,4 @@
-[![Latest Release](https://img.shields.io/badge/version-1.6.0-brightgreen.svg)](../../../Ash.OIUtils/releases) [![Build Status](https://travis-ci.org/MillenniumWarAigis/Ash.OIUtils.svg?branch=master)](https://travis-ci.org/MillenniumWarAigis/Ash.OIUtils) ![Console App Output](https://img.shields.io/badge/output-console_app-green.svg) ![.NET Framework](https://img.shields.io/badge/%2ENET_framework-4%2E5%2E2-green.svg) ![C# Language](https://img.shields.io/badge/language-C%23-yellow.svg) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+[![Latest Release](https://img.shields.io/badge/version-1.6.3-brightgreen.svg)](../../../../Ash.OIUtils/releases) [![Build Status](https://travis-ci.org/MillenniumWarAigis/Ash.OIUtils.svg?branch=master)](https://travis-ci.org/MillenniumWarAigis/Ash.OIUtils) ![Console App Output](https://img.shields.io/badge/output-console_app-green.svg) ![.NET Framework](https://img.shields.io/badge/%2ENET_framework-4%2E5%2E2-green.svg) ![C# Language](https://img.shields.io/badge/language-C%23-yellow.svg) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
 # Osawari Island Archive Tool
 
@@ -13,7 +13,9 @@ This command line program can extract files from the game `Osawari Island`.
 | JSON               |                    | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | MP3                | :heavy_check_mark: |                    |                    |                    |                    |                    |                    |                    |
 | PNG                |                    | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |                    | :heavy_check_mark: | :heavy_check_mark: |
-| JPEG               |                    |                    |                    |                    |                    | :heavy_check_mark: |                    |                    |
+| JPEG*              |                    |                    |                    |                    |                    | :heavy_check_mark: |                    |                    |
+
+* *Only JFIF JPEG's can be filtered at the moment. Support for other application versions, such as EXIF, will be added as necessary.*
 
 ## Usage
 

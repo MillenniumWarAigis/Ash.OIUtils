@@ -461,6 +461,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					bool skip = false;
 					PngImageHeaderChunk pngImageHeader = null;
 					JfifStartOfFrame0Segment jfifSof0 = null;
+					bool hasStartOfImageMarker = false;
 					Mp3Tag mp3Tag = null;
 					string json = null;
 					int imageWidth = 0;
@@ -497,10 +498,13 @@ namespace Ash.OIUtils.ThreeArchiveTool
 								imageHeight = pngImageHeader.Height;
 								break;
 							}
-							else if (checkOrder[k] == 1 && TryPeekJfif(inStream, out jfifSof0))
+							else if (checkOrder[k] == 1 && TryPeekJfif(inStream, out jfifSof0, out hasStartOfImageMarker) || hasStartOfImageMarker)
 							{
-								imageWidth = jfifSof0.Width;
-								imageHeight = jfifSof0.Height;
+								if (jfifSof0 != null)
+								{
+									imageWidth = jfifSof0.Width;
+									imageHeight = jfifSof0.Height;
+								}
 								break;
 							}
 							else if (checkOrder[k] == 2 && TryPeekMp3Header(inStream, out mp3Tag))
@@ -515,7 +519,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					}
 
 					if (i == 0 && !Options.ExportUnknownData
-						&& json == null && pngImageHeader == null && jfifSof0 == null && mp3Tag == null)
+						&& json == null && pngImageHeader == null && jfifSof0 == null && !hasStartOfImageMarker && mp3Tag == null)
 					{
 						skip = true;
 					}
@@ -527,7 +531,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 							skip = true;
 
 							StartFileProcessing(skip, fileCountLengthBase10, i, fileCount);
-							EndFileProcessing(json, pngImageHeader, jfifSof0, mp3Tag, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
+							EndFileProcessing(json, pngImageHeader, jfifSof0, hasStartOfImageMarker, mp3Tag, (int)inStream.Position, fileLengths[i], fileLengthLengthBase16);
 						}
 					}
 
@@ -539,7 +543,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 
 					string destinationPath = BuildDestinationPath(path, rootPath, string.Concat(Path.GetFileNameWithoutExtension(path), "_", i.ToString(),
 						(pngImageHeader != null) ? ".png"
-						: (jfifSof0 != null) ? ".jpg"
+						: (jfifSof0 != null) || hasStartOfImageMarker ? ".jpg"
 						: (mp3Tag != null) ? ".mp3"
 						: (json != null) ? ".json"
 						: ".dat"));
@@ -567,7 +571,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 							inStream.SubCopyTo(outStream, fileLengths[i]);
 						}
 
-						EndFileProcessing(json, pngImageHeader, jfifSof0, mp3Tag, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
+						EndFileProcessing(json, pngImageHeader, jfifSof0, hasStartOfImageMarker, mp3Tag, (int)(inStream.Position - fileLengths[i]), fileLengths[i], fileLengthLengthBase16);
 					}
 				}
 			}
@@ -592,7 +596,7 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			}
 		}
 
-		static void EndFileProcessing(string json, PngImageHeaderChunk pngImageHeader, JfifStartOfFrame0Segment jfifSof0, Mp3Tag mp3Tag, int startPosition, int fileLength, int fileCountLengthBase16)
+		static void EndFileProcessing(string json, PngImageHeaderChunk pngImageHeader, JfifStartOfFrame0Segment jfifSof0, bool hasStartOfImageMarker, Mp3Tag mp3Tag, int startPosition, int fileLength, int fileCountLengthBase16)
 		{
 			if (Options.VerboseLevel >= 4)
 			{
@@ -605,6 +609,10 @@ namespace Ash.OIUtils.ThreeArchiveTool
 				{
 					Console.Out.Write(" JPG {0,-4}  {1,-4}  {2,-2}  {3,-14}",
 						jfifSof0.Width, jfifSof0.Height, jfifSof0.BitDepth, " ");
+				}
+				else if (hasStartOfImageMarker)
+				{
+					Console.Out.Write(" JPG {0,-30}", " ");
 				}
 				else if (mp3Tag != null)
 				{
@@ -717,19 +725,21 @@ namespace Ash.OIUtils.ThreeArchiveTool
 			if (string.IsNullOrEmpty(key)) { throw new Exception("data cannot be decrypted without a key. Please specify one with /x"); }
 		}
 
-		static bool TryPeekJfif(Stream stream, out JfifStartOfFrame0Segment startOfFrame0)
+		static bool TryPeekJfif(Stream stream, out JfifStartOfFrame0Segment startOfFrame0, out bool hasStartOfImageMarker)
 		{
 			long position = stream.Position;
 
-			bool result = TryReadJfif(stream, out startOfFrame0);
+			bool result = TryReadJfif(stream, out startOfFrame0, out hasStartOfImageMarker);
 
 			stream.Seek(position, SeekOrigin.Begin);
 
 			return result;
 		}
 
-		static bool TryReadJfif(Stream stream, out JfifStartOfFrame0Segment startOfFrame0)
+		static bool TryReadJfif(Stream stream, out JfifStartOfFrame0Segment startOfFrame0, out bool hasStartOfImageMarker)
 		{
+			hasStartOfImageMarker = false;
+
 			try
 			{
 				for (int i = 0; ; ++i)
@@ -742,19 +752,30 @@ namespace Ash.OIUtils.ThreeArchiveTool
 					if (i == 0)
 					{
 						if (marker != JfifStartOfImageSegment.Constants.Marker) { throw new Exception("first marker is not start of image."); }
+
+						hasStartOfImageMarker = true;
 					}
 					else if (i == 1)
 					{
-						if (marker != JfifApp0Segment.Constants.Marker) { throw new Exception("second marker is not app0."); }
-
 						try
 						{
-							segment = new JfifApp0Segment(stream, marker);
+							if (marker == JfifApp0Segment.Constants.Marker)
+							{
+								segment = new JfifApp0Segment(stream, marker);
+							}
+							else
+							{
+								throw new NotImplementedException(string.Format("application version marker 0x{0:X2) is not supported.", marker));
+							}
+						}
+						catch (NotImplementedException ex)
+						{
+							throw ex;
 						}
 						catch (Exception ex)
 						{
 							Console.Error.WriteLine("*** error: {0}", ex.Message);
-							throw new Exception("invalid app0 marker segment.");
+							throw new Exception("invalid app marker segment.");
 						}
 					}
 					else if (marker == JfifStartOfScanSegment.Constants.Marker)

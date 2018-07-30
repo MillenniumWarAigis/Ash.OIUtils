@@ -1,0 +1,2562 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<title>Osawari Island Scene Player</title>
+
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+			}
+
+			html, body {
+				width: 100%;
+				height: 100%;
+			}
+
+			#content {
+				display: block;
+				width: 100%;
+				height: 100%;
+				margin: 0;
+				padding: 0;
+			}
+
+				#content * {
+					-webkit-user-select: none;
+					-khtml-user-select: none;
+					-moz-user-select: none;
+					-o-user-select: none;
+					user-select: none;
+				}
+
+			.canvas {
+				display: block;
+				padding: 0;
+				margin: auto;
+			}
+
+			.canvas-fallback {
+				margin: 0;
+				padding: 0;
+			}
+
+			.dialogue-container {
+				position: fixed;
+				text-align: center;
+				bottom: 0;
+				left: 0;
+				right: 0;
+			}
+
+			.dialogue {
+				background-repeat: no-repeat;
+				background-position: center;
+				opacity: 1.0;
+				min-height: 154px;
+				max-width: 800px;
+				margin-top: 0;
+				margin-bottom: 0;
+				margin-left: auto;
+				margin-right: auto;
+			}
+
+				.dialogue .text {
+					color: white;
+					font-size: 1.6em;
+					text-align: left;
+					text-shadow: -1px -1px 1px rgba(0, 0, 0, 0.8), 1px 1px 1px rgba(0, 0, 0, 0.8), -1px 1px 1px rgba(0, 0, 0, 0.8), 1px -1px 1px rgba(0, 0, 0, 0.8);
+					-webkit-font-smoothing: antialiased;
+					font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+					margin-left: 45px;
+					margin-right: 45px;
+					max-height: 100px;
+					position: relative;
+					top: 30px;
+					left: 0;
+					display: block;
+					overflow-y: hidden;
+				}
+
+			.hint {
+				position: absolute;
+				left: 50%;
+				top: 50%;
+				margin: 0;
+				transform: translate(-50%, -50%);
+				text-align: center;
+				pointer-events: none;
+			}
+
+			.hint .text{
+				animation: pulse 1s infinite alternate linear;
+				font-size: 2em;
+				text-shadow: 1px 1px 1px gray;
+				font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+				font-weight: bolder;
+			}
+
+			.toast-container {
+				position: fixed;
+				text-align: center;
+				top: 0;
+				left: 0;
+				right: 0;
+				height: 0;
+			}
+
+			.toast {
+				background-color: rgba(255, 255, 255, 0.7);
+				box-shadow: 0 3px 9px rgba(0, 0, 0, 0.5);
+				border-radius: 16px;
+				padding: 16px 16px 16px 16px;
+				margin: 16px 16px 16px 16px;
+				
+				display: inline-block;
+				text-align: left;
+
+				pointer-events: none;
+			}
+
+			.toast .text {
+				font-size: 1.2em;
+				text-shadow: 1px 1px 1px gray;
+				font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+				margin-left: 2em;
+				margin-right: 2em;
+			}
+
+			.progressIndicator {
+				background-color: rgba(255, 255, 255, 0.7);
+				box-shadow: 0 3px 9px rgba(0, 0, 0, 0.5);
+				border-radius: 16px;
+				padding: 16px 16px 16px 16px;
+				margin: 16px 16px 16px 16px;
+				position: fixed;
+				top: 1em;
+				left: 1em;
+				opacity: 1.0;
+				pointer-events: none;
+			}
+
+			.progressIndicator .spinner {
+				animation: spin 1s infinite linear;
+				vertical-align: middle;
+				padding: 8px;
+			}
+
+			.progressIndicator .text {
+				animation: pulse 1s infinite alternate linear;
+				font-size: 1.6em;
+				text-shadow: 1px 1px 1px gray;
+				font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+				font-weight: bolder;
+				margin-left: .5em;
+				margin-right: .5em;
+			}
+
+			@keyframes spin {
+				0% {
+					transform: rotate(0deg);
+				}
+				100% {
+					transform: rotate(360deg);
+				}
+			}
+
+			@keyframes pulse {
+				0% {
+					opacity: 0.5;
+				}
+				100% {
+					opacity: 0.9;
+				}
+			}
+
+			.fade-in {
+				animation: fade-in 1s linear 0s 1 normal;
+				animation-fill-mode: both;
+			}
+
+			.fade-out {
+				animation: fade-out 1s linear 0s 1 normal;
+				animation-fill-mode: both;
+			}
+
+			.animation-duration-short {
+				animation-duration: .15s;
+			}
+
+			@keyframes fade-in {
+				to {
+					opacity: 1.0;
+				}
+			}
+
+			@keyframes fade-out {
+				to {
+					opacity: 0.0;
+				}
+			}
+
+			.hidden {
+				visibility: hidden;
+			}
+
+			.visible {
+				visibility: visible;
+			}
+
+			.unblock {
+				display: none;
+			}
+
+			.block {
+				display: block;
+			}
+
+			.inline-block {
+				display: inline-block;
+			}
+
+			.full-width {
+				/*width: 100%;*/
+			}
+
+			.full-height {
+				/*height: 100%;*/
+			}
+
+			/* use full-* instead because viewport-* ignores the scroll bars */
+			.viewport-width {
+				width: 100vw;
+			}
+
+			.viewport-height {
+				height: 100vh;
+			}
+
+			.smoothScrolling {
+				-webkit-scroll-behavior: smooth;
+				-khtml-scroll-behavior: smooth;
+				-moz-scroll-behavior: smooth;
+				-ms-scroll-behavior: smooth;
+				-o-scroll-behavior: smooth;
+				scroll-behavior: smooth;
+			}
+
+			.cursor-grab {
+				cursor: -webkit-grab;
+				cursor: -khtml-grab;
+				cursor: -moz-grab;
+				cursor: -ms-grab;
+				cursor: -o-grab;
+				cursor: grab;
+				/*cursor: url(./assets/images/1.PNG);
+				cursor: url(./assets/images/28.PNG);*/
+			}
+
+			.cursor-grabbing {
+				cursor: -webkit-grabbing;
+				cursor: -khtml-grabbing;
+				cursor: -moz-grabbing;
+				cursor: -ms-grabbing;
+				cursor: -o-grabbing;
+				cursor: grabbing;
+			}
+
+			.asset-list-container {
+				position: fixed;
+				text-align: center;
+				top: 0;
+				left: 0;
+				right: 0;
+				width: 90%;
+				margin-left: auto;
+				margin-right: auto;
+				opacity: 1.0;
+				height: 100%;
+			}
+
+				.asset-list-container h1,
+				.asset-list-container h2 {
+					padding: 16px 16px 16px 16px;
+					margin: 16px 16px 16px 16px;
+					margin-top: 1em;
+					margin-bottom: 1em;
+					font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+					border-bottom: 1px dotted gray;
+				}
+
+				.asset-list-container h1 {
+					margin-top: 0;
+					border-bottom: 3px double  gray;
+				}
+
+				.asset-list-container .subcontainer {
+					padding: 2em;
+					background-color: rgba(255, 255, 255, 0.9);
+					box-shadow: 0 3px 9px rgba(0, 0, 0, 0.5);
+					border-radius: 16px;
+					padding: 16px 16px 16px 16px;
+					margin: 16px 16px 16px 16px;
+					display: block;
+					text-align: left;
+					margin-bottom: 1em;
+					margin-top: 1em;
+					margin-left: auto;
+					margin-right: auto;
+					height: 75%;
+					overflow-y: auto;
+				}
+
+				.asset-list-container ol {
+					text-align: left;
+					padding-left: 2em;
+					padding-right: 2em;
+					word-wrap: break-word;
+				}
+
+					.asset-list-container ol li {
+						font-size: 1em;
+						text-align: left;
+						font-family: Courier New, Courier, monospace;
+						margin-bottom: 1em;
+					}
+
+						.asset-list-container ol li:last-child {
+							margin-bottom: 0;
+						}
+
+				.asset-list-container ol.compact {
+					text-align: center;
+					margin: auto;
+				}
+
+				.asset-list-container ol.compact li {
+					display: inline;
+					margin: 0;
+				}
+
+				.asset-list-container ol.compact li span {
+					display: none;
+				}
+
+			.asset-list-container .button-container {
+				text-align: center;
+			}
+
+			.asset-list-container .button {
+				margin: 16px 16px 16px 16px;
+				padding: 4px;
+				font-size: 1.5em;
+				font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+			}
+
+			.asset-list-container img {
+				border: 2px ridge blue;
+				-webkit-transition: width 600ms cubic-bezier(0.785, 0.135, 0.15, 0.86);
+				transition: width 600ms cubic-bezier(0.785, 0.135, 0.15, 0.86);
+				vertical-align: middle;
+				margin-top: 1em;
+			}
+
+				.asset-list-container span {
+					background-color: rgba(255, 255, 255, 0.9);
+					box-shadow: 0 3px 9px rgba(0, 0, 0, 0.5);
+					border-radius: 16px;
+					padding: 16px 16px 16px 16px;
+					margin: 16px 16px 16px 16px;
+					text-align: left;
+					font-size: 1.4em;
+					font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+					display: inline-block;
+				}
+
+			.asset-list-container audio {
+				vertical-align: middle;
+				margin-top: 1em;
+			}
+
+			.quarter-width {
+				width: 25%;
+			}
+			.half-width {
+				width: 50%;
+			}
+			.full-width2 {
+				width: 100%;
+			}
+			.width-auto {
+				width: auto;
+			}
+
+			.download-overlay-container {
+				position: relative;
+				display: inline;
+			}
+
+			.download-overlay-container img ~ a {
+				position: absolute;
+				top: 8px;
+				left: 8px;
+
+				background-color: rgba(255, 255, 255, 0.9);
+				box-shadow: 0 3px 9px rgba(0, 0, 0, 0.5);
+				border-radius: 4px;
+				padding: 8px 8px 8px 8px;
+				margin: 8px 8px 8px 8px;
+				display: inline-block;
+
+				opacity: 0;
+				-webkit-transition: opacity 150ms cubic-bezier(0.785, 0.135, 0.15, 0.86);
+				transition: opacity 150ms cubic-bezier(0.785, 0.135, 0.15, 0.86);
+
+				text-align: left;
+				font-size: 1.4em;
+				font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+				font-style: italic;
+			}
+
+			.download-overlay-container img:hover ~ a,
+			.download-overlay-container a:hover {
+				opacity: 1;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="content">
+			<div class="hint"><span class="text"></span></div>
+			<div class="progressIndicator unblock"><img class="spinner" src="default.png" alt="loading animation"/><span class="text"></span></div>
+			<div class="toast-container"><div class="toast unblock"><span class="text"></span></div></div>
+			<div class="dialogue-container"><div class="dialogue unblock"><span class="text"></span></div></div>
+			<!--<div class="canvas-container">-->
+				<img class="canvas-fallback unblock" src="default.png" alt="animation frame" />
+				<img class="canvas-fallback unblock" src="default.png" alt="animation frame" />
+				<canvas class="canvas full-height unblock"></canvas>
+				<canvas class="canvas full-width unblock"></canvas>
+			<!--</div>-->
+			<div class="audio">
+				<audio class="music" loop="loop">
+					<source src="" type="audio/ogg" />
+					<source src="" type="audio/mpeg" />
+					<source src="" type="audio/wav" />
+					<source src="" type="audio/mp4" />
+					<source src="" type="audio/webm" />
+				</audio>
+				<audio class="voice">
+					<source src="" type="audio/ogg" />
+					<source src="" type="audio/mpeg" />
+					<source src="" type="audio/wav" />
+					<source src="" type="audio/mp4" />
+					<source src="" type="audio/webm" />
+				</audio>
+				<audio class="sfx">
+					<source src="" type="audio/ogg" />
+					<source src="" type="audio/mpeg" />
+					<source src="" type="audio/wav" />
+					<source src="" type="audio/mp4" />
+					<source src="" type="audio/webm" />
+				</audio>
+			</div>
+		</div>
+		<div class="asset-list-container unblock">
+			<div class="button-container"><button type="button" class="button"></button></div>
+			<div class="subcontainer">
+				<h1 class="header"></h1>
+				<h2 class="subheader"></h2>
+				<ol></ol>
+				<h2 class="subheader"></h2>
+				<ol></ol>
+				<h2 class="subheader"></h2>
+				<ol></ol>
+				<h2 class="subheader"></h2>
+				<ol></ol>
+			</div>
+		</div>
+		<div class="asset-list-container unblock">
+			<div class="button-container"><button type="button" class="button"></button> <button type="button" class="button"></button></div>
+			<div class="subcontainer">
+				<h1 class="header"></h1>
+				<h2 class="subheader"></h2>
+				<ol></ol>
+			</div>
+		</div>
+		<script type="text/javascript">
+			"use strict";
+
+			var Program =
+			{
+				elements: {
+					content: document.getElementById("content"),
+					canvas: document.getElementsByClassName("canvas")[0],
+					canvas2: document.getElementsByClassName("canvas")[1],
+					image: document.getElementsByClassName("canvas-fallback")[0],
+					dialogue: document.getElementsByClassName("dialogue")[0],
+					dialogueText: document.getElementsByClassName("dialogue")[0].getElementsByClassName("text")[0],
+					hint: document.getElementsByClassName("hint")[0],
+					hintText: document.getElementsByClassName("hint")[0].getElementsByClassName("text")[0],
+					toast: document.getElementsByClassName("toast")[0],
+					toastText: document.getElementsByClassName("toast")[0].getElementsByClassName("text")[0],
+					loadProgress: document.getElementsByClassName("progressIndicator")[0],
+					loadProgressText: document.getElementsByClassName("progressIndicator")[0].getElementsByClassName("text")[0],
+					loadProgressSpinner: document.getElementsByClassName("progressIndicator")[0].getElementsByClassName("spinner")[0],
+					music: document.getElementsByClassName("audio")[0].getElementsByClassName("music")[0],
+					sfx: document.getElementsByClassName("audio")[0].getElementsByClassName("sfx")[0],
+					voice: document.getElementsByClassName("audio")[0].getElementsByClassName("voice")[0],
+					assetListContainer: document.getElementsByClassName("asset-list-container")[0],
+					assetListRefresh: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("button")[0],
+					assetListHeader: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("header")[0],
+					imageAssetList: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("subcontainer")[0].getElementsByTagName("OL")[0],
+					dataAssetList: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("subcontainer")[0].getElementsByTagName("OL")[1],
+					soundAssetList: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("subcontainer")[0].getElementsByTagName("OL")[2],
+					messageAssetList: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("subcontainer")[0].getElementsByTagName("OL")[3],
+					imageAssetListHeader: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("subheader")[0],
+					dataAssetListHeader: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("subheader")[1],
+					soundAssetListHeader: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("subheader")[2],
+					messageAssetListHeader: document.getElementsByClassName("asset-list-container")[0].getElementsByClassName("subheader")[3],
+					archiveFileListContainer: document.getElementsByClassName("asset-list-container")[1],
+					archiveFileListHeader: document.getElementsByClassName("asset-list-container")[1].getElementsByClassName("header")[0],
+					archiveFileList: document.getElementsByClassName("asset-list-container")[1].getElementsByClassName("subcontainer")[0].getElementsByTagName("OL")[0],
+					gridViewButton: document.getElementsByClassName("asset-list-container")[1].getElementsByClassName("button")[0],
+					archiveDownloadAll: document.getElementsByClassName("asset-list-container")[1].getElementsByClassName("button")[1]
+				},
+				assets: {
+					canvasOverlay: null,	// TODO rename this vignetteOverlay
+					superOverlay: null,		// TODO rename this unionOverlay
+					breathParticle: null,	// TODO rename this toiki?
+					onomatopoeia: []
+				},
+				resourcePaths: {
+					lib_swf: {
+						images: "resources/lib_swf/images/"
+					},
+					base: {
+						images: "resources/base/images/"
+					},
+					osawari_ae: {
+						images: "resources/osawari_ae/images/"
+					}
+				},
+				getDirectoryName: function (url) {
+					if (typeof url !== "string") { console.error("`url` is not a string."); return }
+
+					const lastIndexOfPathSeparator = url.lastIndexOf("/")
+					
+					if (lastIndexOfPathSeparator !== -1) {
+						return url.substr(0, lastIndexOfPathSeparator + 1)
+					}
+					else {
+						return url
+					}
+				},
+				onlineToLocalNameRegex: /(?:https:\/\/[^\/]+\/)([^?]*)(?:\?t=0)?/,
+				toLocalAssetName: function (url) {
+					return this.assetPath + url.match(this.onlineToLocalNameRegex)[1]
+				},
+				assetPath: "assets/",
+				/*
+				// TODO (hash to name - not yet implemented)
+				getAssetPath: function (resourceType, containerHash, subcontainerHash) {
+					
+				},
+				fileNameHashTable: {
+					resourceType: {
+						"data": "ag002_contents",
+						"images": "ag002_images",
+						"sounds": "ag002_contents",
+					},
+					contents: {
+						"" : "",
+					},
+				},
+				assetPath: "assets/${resourceType}/${category}/${name}/",
+				*/
+				assetPaths: {
+					data: "assets/data/${sceneName}/",
+					images: "assets/images/${sceneName}/",
+					sounds: "assets/sounds/${sceneName}/",
+				},
+				strings: {
+					gui: {
+						hints: {
+							dropFiles: "Drop the animation frames here!"
+						},
+						progress: {
+							loadingNoProgress: "Loading...",
+							loading: "Loading...&nbsp;${percentage}% &nbsp;(${currentOverTotal})"
+						},
+						status: {
+							viewChange: {
+								fullWidth: "Fit horizontally.",
+								fullHeight: "Fit vertically.",
+								customSize: "Custom size (${percentage})."
+							},
+							zoomChange: "Zoom set to ${percentage}",
+							frameRateChange: "Frame rate set to ${percentage}.",
+						},
+						assetList: {
+							header: "${sceneName}",
+							images: "Images (${count})",
+							data: "Data Files (${count})",
+							sounds: "Sounds (${count})",
+							message: "Subtitles (${count})",
+							urlEntry: "${fileName} - ${key}",
+							valueEntry: "${value}",
+							refresh: "Refresh assets",
+							compactView: "Change View",
+							downloadAll: "Download All"
+						}
+					}
+				},
+				settings: {
+					name: "Player",
+					view: "",	// "", "full-width", "full-height"
+					zoomLevel: 1.0,
+					musicType: 0,	// 0-3
+					voiceVolume: 1.0,
+					sfxVolume: 1.0,
+					frameRate: 1.0,
+					animateDialogueLine: true,
+					showBubble: true,
+					showBubbleOrigin: false,	// only for debugging
+					showBreath: true,
+					showOverlay: true,
+					showSuperOverlay: true,
+					showDialogue: true,
+					showSpots: false,			// only for debugging
+					showPartsOrigin: false		// only for debugging
+				},
+				defaultSettings: [],
+				sceneData: null,
+				sceneName: "",
+				dialogueLineIndex: -1,
+				minFrameDelay: 0.001,
+				maxFrameDelay: 1.0,
+				frameDelay: 0.003,
+				toastTimer: null,
+				queuedFiles: [],
+				frameImages: [],
+				frameIndex: -1,
+				isCanvasSupported: true,
+				refreshTimer: null,
+				startTime: 0,
+				playCount: 0,
+				maxPlayCount: 0,
+				// scrolling
+				deltaX: 0,
+				deltaY: 0,
+				cursorPositionX: 0,
+				cursorPositionY: 0,
+				isMouseDown: false,
+				//
+				vignetteOverlayAlpha: 1.0,
+				superOverlayAlpha: 0.0,
+				updateFileProgress: function (i) {
+					if (this.queuedFiles.length === 1) {
+						this.elements.loadProgressText.innerHTML = this.strings.gui.progress.loadingNoProgress
+					}
+					else {
+						const total = this.queuedFiles.length
+						const percentage = Math.round(((i + 1.0) / total) * 100.0)
+						const currentOverTotal = (i + 1).toString() + "/" + total
+
+						this.elements.loadProgressText.innerHTML = this.strings.gui.progress.loading.replace("${percentage}", percentage).replace("${currentOverTotal}", currentOverTotal)
+					}
+				},
+				dumpAssets: function (header, list, source, headerString, entryString, callback) {
+					const ol = list
+
+					while (ol.firstChild) {
+						ol.removeChild(ol.firstChild)
+					}
+
+					let count = 0
+
+					for (let prop in source) {
+						if (source.hasOwnProperty(prop)) {
+							++count
+						}
+					}
+
+					header.innerHTML = headerString.replace("${count}", count)
+
+					let orderedThingUrl = []
+
+					for (let prop in source) {
+						if (source.hasOwnProperty(prop)) {
+							orderedThingUrl.push({ key: prop, value: source[prop] })
+						}
+					}
+
+					orderedThingUrl.sort(function (a, b) { return a.key.localeCompare(b.key, undefined, { numeric: true, sensitivity: 'base' }) })
+
+					for (let i = 0; i < orderedThingUrl.length; ++i) {
+						const key = orderedThingUrl[i].key
+						const value = orderedThingUrl[i].value
+
+						const li = document.createElement("LI")
+						const liText = document.createTextNode(entryString
+							.replace("${key}", key)
+							.replace("${value}", value)
+							.replace("${fileName}", this.getFileName(value))
+							.replace("${fileNameWithoutExtension}", this.getFileNameWithoutExtension(value)))
+
+						if (value.startsWith("http")) {
+							const liA = document.createElement("A")
+
+							liA.setAttribute("href", value)
+							liA.appendChild(liText)
+
+							li.appendChild(liA)
+						}
+						else {
+							const liSpan = document.createElement("SPAN")
+
+							liSpan.appendChild(liText)
+
+							li.appendChild(liSpan)
+						}
+
+						if (callback) {
+							callback(key, value, li, i)
+						}
+
+						ol.appendChild(li)
+					}
+				},
+				fillAssetList: function () {
+					if (!this.sceneData)
+					{
+						return;
+					}
+
+					this.elements.assetListHeader.innerHTML = this.strings.gui.assetList.header.replace("${sceneName}", this.sceneName)
+
+					this.dumpAssets(this.elements.imageAssetListHeader, this.elements.imageAssetList, this.sceneData.img_url, this.strings.gui.assetList.images, this.strings.gui.assetList.urlEntry,
+						function (prop, url, li, i) {
+							if (url.lastIndexOf(".png") !== -1
+								|| url.lastIndexOf(".jpg") !== -1) {
+								const liBr = document.createElement("BR")
+								li.appendChild(liBr)
+
+								const img = document.createElement("IMG")
+
+								img.setAttribute("title", i.toString())
+								img.setAttribute("alt", i.toString())
+								img.setAttribute("src", url)
+								img.addClass("quarter-width")
+								img.onclick = function () { this.nextClass("quarter-width", "half-width", "full-width2", "width-auto") }
+								img.onerror = function () {
+									this.alt = "***ERROR*** Could not load image at `" + url + "`"
+								}
+								img.onload = function () {
+									const liSpan = document.createElement("SPAN")
+									const liSpanText = document.createTextNode("(" + this.naturalWidth + "x" + this.naturalHeight + ")")
+									liSpan.appendChild(liSpanText)
+									li.appendChild(liSpan)
+								}
+								li.appendChild(img)
+							}
+						}.bind(this))
+
+					this.dumpAssets(this.elements.dataAssetListHeader, this.elements.dataAssetList, this.sceneData.data_url, this.strings.gui.assetList.data, this.strings.gui.assetList.urlEntry,)
+
+					this.dumpAssets(
+						this.elements.soundAssetListHeader, this.elements.soundAssetList, this.sceneData.snd_url, this.strings.gui.assetList.sounds, this.strings.gui.assetList.urlEntry,
+						function (prop, url, li, i) {
+							const liBr = document.createElement("BR")
+							li.appendChild(liBr)
+
+							const audio = document.createElement("AUDIO")
+							const source = document.createElement("SOURCE")
+							audio.setAttribute("controls", "controls")
+							source.setAttribute("src", url)
+							source.setAttribute("type", "audio/mpeg")
+							audio.appendChild(source)
+							audio.onerror = function () {
+								this.alt = "***ERROR*** Could not load audio at `" + url + "`"
+							}
+							li.appendChild(audio)
+
+							const voiceIndex = prop.match(/voice(?:_*|\s*)(\d+)/i)
+
+							if (voiceIndex != null) {
+								const liVoiceSubtitle = document.createElement("SPAN")
+								const liVoiceSubtitleText = document.createTextNode(this.sceneData.msg[parseInt(voiceIndex[1])])
+								liVoiceSubtitle.appendChild(liVoiceSubtitleText)
+								li.appendChild(liVoiceSubtitle)
+							}
+						}.bind(this))
+
+					this.dumpAssets(this.elements.messageAssetListHeader, this.elements.messageAssetList, this.sceneData.msg, this.strings.gui.assetList.message, this.strings.gui.assetList.valueEntry)
+				},
+				reset: function () {
+					this.showCanvas ()
+					this.loadStaticAssets ()
+					this.stop ()
+					this.elements.hint.unblock ()
+					this.elements.loadProgress.block ()
+					this.elements.loadProgress.fadeIn ()
+					this.queuedFiles = []
+					this.frameImages = []
+					this.frameIndex = -1
+					this.refreshTimer = null
+					this.startTime = 0
+					this.playCount = 0
+
+					if (this.isCanvasSupported) {
+						this.elements.canvas.width = 50
+						this.elements.canvas.height = 100
+
+						this.elements.canvas2.width = 50
+						this.elements.canvas2.height = 100
+					}
+				},
+				showCanvas: function () {
+					const canvas = this.isCanvasSupported ? this.elements.canvas : this.elements.image
+
+					canvas.block()
+					//this.elements.canvas2.block()	// TODO the two column layout ain't working right yet
+				},
+				// --- Settings ---
+				loadSettings: function () {
+					let jsonText = ""
+
+					try {
+						jsonText = localStorage.getItem("settings")
+					}
+					catch (e) {
+						console.warn(e)
+					}
+
+					if (jsonText != null && jsonText !== "") {
+						let jsonObject = JSON.parse(jsonText)
+
+						for (let prop in jsonObject) {
+							if (jsonObject.hasOwnProperty(prop)) {
+								this.settings[prop] = jsonObject[prop]
+							}
+						}
+					}
+
+					//this.updateSettingsControls();
+				},
+				saveSettings: function () {
+					try {
+						localStorage.setItem("settings", JSON.stringify(this.settings))
+					}
+					catch (e) {
+						console.warn(e)
+					}
+				},
+				resetSettings: function () {
+					for (let prop in this.defaultSettings) {
+						if (this.defaultSettings.hasOwnProperty(prop)) {
+							this.settings[prop] = this.defaultSettings[prop]
+						}
+					}
+
+					localStorage.setItem("settings", "{}")
+
+					//this.updateSettingsControls();
+				},
+				initializeDefaultSettings: function () {
+					for (let prop in this.settings) {
+						if (this.settings.hasOwnProperty(prop)) {
+							this.defaultSettings[prop] = this.settings[prop];
+						}
+					}
+				},
+				// --- Local file loading ---
+				loadLocalFiles: function (_e) {
+					this.reset ()
+
+					this.queuedFiles = _e.dataTransfer.files
+					this.loadLocalFile (0)
+				},
+				loadNextLocalFileOrPlay: function (i) {
+					this.updateFileProgress(i)
+
+					if (i === this.queuedFiles.length - 1) {
+						this.elements.loadProgress.fadeOut()
+						this.play()
+					}
+					else {
+						this.loadLocalFile(i + 1)
+					}
+				},
+				loadLocalHttpResponse: function (i, file, e) {
+					const jsonText = e.target.result
+					const jsonObject = JSON.parse (jsonText)
+
+					//console.dir(jsonObject)
+
+					this.sceneName = this.getFileNameWithoutExtension(file.name)
+					this.loadNextLocalFileOrPlay(i)
+				},
+				decodeLocalHttpResponse: function (i, file, e) {
+					const responseText = e.target.result
+					const header = "throw 1; < don't be evil' >"
+					const responseJsonText = responseText.substr(header.length)
+					const responseJson = JSON.parse(responseJsonText)
+					let response = null
+					for (let prop in responseJson) {
+						if (responseJson.hasOwnProperty(prop)) {
+							response = responseJson[prop]
+							break
+						}
+					}
+
+					const decryptedJsonText = this.decodeResponse(response.body, this.getEncryptionKey())
+					if (!decryptedJsonText) {
+						this.setToastText("Failed to decode json.", 2)
+						return
+					}
+
+					this.sceneData = JSON.parse(decryptedJsonText)
+
+					const sceneType = this.getSceneType()
+					if (sceneType === -1) {
+						this.setToastText("Invalid scene data!", 2)
+						this.sceneData = null
+						return
+					}
+					else if (sceneType === 0) {
+						this.setToastText("Unsupported scene type!", 2)
+						this.sceneData = null
+						return
+					}
+
+					this.sceneType = sceneType
+					this.sceneName = this.getFileNameWithoutExtension(file.name)
+
+					this.onSceneDataChanged ()
+
+					this.loadNextLocalFileOrPlay(i)
+				},
+				decodeResponse: function (b64DesInput, key) {
+					if (!key) {
+						return
+					}
+
+					const response = this.b64DecodeUnicode(b64DesInput)
+					let decoded = ""
+
+					for (let i = 0; i < response.length; ++i) {
+						decoded += String.fromCharCode((response.charCodeAt(i) ^ key.charCodeAt(i % key.length)) & 0xFF)
+					}
+
+					const output = decoded.substr(16)
+					
+					return output
+				},
+				decode: function (input, key) {
+					if (!key) {
+						return
+					}
+
+					let output = ""
+
+					for (let i = 0; i < input.length; ++i) {
+						output += String.fromCharCode((input.charCodeAt(i) ^ key.charCodeAt(i % key.length)) & 0xFF)
+					}
+
+					return output
+				},
+				getEncryptionKey: function () {
+					const queries = window.location.search.substr(1).split("&")
+					let key = ""
+
+					for (let i = 0; i < queries.length; ++i) {
+						const tokens = queries[i].split("=", 2)
+
+						if (tokens.length === 2 && tokens[0] === "k") {
+							key = decodeURIComponent(tokens[1].replace(/\+/g, " "))
+							break
+						}
+					}
+
+					if (!key) {
+						console.warn("You need to specify the encryption key with the `k` query (i.e., &k=TYPE_THEY_KEY_HERE)")
+						return
+					}
+
+					return key
+				},
+				des: function (input, key) {
+					let output = []
+
+					for (let i = 0; i < input.length; ++i) {
+						output[i] = (new Number(input[i]) ^ new Number(key[i % key.length])) & 0xFF
+					}
+
+					return new Uint8Array(output)
+				},
+				// https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/Base64_encoding_and_decoding
+				b64DecodeUnicode: function (str) {
+					return decodeURIComponent(atob(str).split('').map(function (c) {
+						return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+					}).join(''));
+				},
+				loadLocalImage: function (i, file, e) {
+					const that = this
+					const image = new Image()
+
+					image.setAttribute("data-frame-index", i)
+					image.setAttribute("data-frame-name", file.name)
+					image.alt = "animation frame"
+					image.type = file.type
+					image.src = e.target.result
+					image.onload = function () {
+						if (that.isCanvasSupported) {
+							if (that.elements.canvas.width < image.width) {
+								that.elements.canvas.width = image.width
+								that.elements.canvas2.width = image.width
+							}
+
+							if (that.elements.canvas.height < image.height) {
+								that.elements.canvas.height = image.height
+								that.elements.canvas2.height = image.height
+							}
+						}
+
+						that.frameImages.push(image)
+
+						that.loadNextLocalFileOrPlay(i)
+					}
+					image.onerror = function (e) {
+						console.warn(e)
+					}
+				},
+				loadLocalFile: function (i) {
+					const that = this
+					const file = this.queuedFiles[i]
+					const reader = new FileReader ()
+
+					//console.dir(file)
+
+					if (file.type.startsWith("image")
+						|| file.type.startsWith("video")
+						|| file.type.startsWith("media")
+						|| file.name.endsWith(".apng")) {	// apng returns an empty type!
+						reader.onload = function (e) {
+							that.loadLocalImage(i, file, e)
+						}
+						reader.readAsDataURL (file)
+					}
+					else if (file.type.startsWith("application/json")) {
+						reader.onload = function (e) {
+							that.loadLocalHttpResponse(i, file, e)
+						}
+						reader.readAsText(file)
+					}
+					else if (file.type.startsWith("text/plain")) {
+						reader.onload = function (e) {
+							that.decodeLocalHttpResponse(i, file, e)
+						}
+						reader.readAsText(file)
+					}
+					else if (file.name.endsWith(".6")) {
+						reader.onloadend = function (e) {
+							that.loadArchive(i, file, e)
+						}
+						reader.readAsArrayBuffer (file)
+					}
+				},
+				loadArchive: function(index, file, e) {
+					this.updateFileProgress(index)
+					if (index === this.queuedFiles.length - 1) {
+						this.elements.loadProgress.fadeOut()
+					}
+
+					let pos = 0
+					const that = this
+					const uint8View = new Uint8Array (e.target.result)
+					const count = this.getLittleInt32(uint8View, pos)
+					const ol = that.elements.archiveFileList
+
+					pos += 4
+
+					this.elements.archiveFileListContainer.block()
+					that.elements.archiveFileListHeader.innerHTML = file.name
+
+					while (ol.firstChild) {
+						ol.removeChild(ol.firstChild)
+					}
+
+					let lengths = []
+					for (let i = 0; i < count; ++i) {
+						lengths[i] = this.getLittleInt32(uint8View, pos)
+						pos += 4
+
+						const li = document.createElement ("LI")
+
+						ol.appendChild (li)
+					}
+
+					for (let i = 0; i < count; pos += lengths[i++]) {
+						const subBuffer = uint8View.slice(pos, pos + lengths[i])
+						const blob = new Blob ([ subBuffer ], { type: "application/octet-binary" })
+						const reader = new FileReader ()
+						let type = ""
+						let fileExt = ""
+
+						if (subBuffer.startsWith([0xff, 0xd8])) {
+							type = "image/jpeg"
+							fileExt = ".jpg"
+						}
+						else if (subBuffer.startsWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+							type = "image/png"
+							fileExt = ".png"
+						}
+						else if (subBuffer.startsWith([0x49, 0x44, 0x33])) {
+							type = "audio/mpeg"
+							fileExt = ".mp3"
+						}
+
+						reader.onload = function (_e) {
+							const li = ol.getElementsByTagName ("LI")[i]
+
+							if (type.startsWith ("image/")) {
+								//const div = document.createElement ("DIV")
+								const a = document.createElement ("A")
+								//const aText = document.createTextNode ("Download")
+
+								//div.style.position = "relative"
+								//div.className = "download-overlay-container"
+
+								//a.appendChild(aText)
+								a.setAttribute("download", that.getFileNameWithoutExtension(file.name) + "_" + i + fileExt)
+								a.setAttribute("href", _e.target.result)
+
+								const img = document.createElement ("IMG")
+								const encodedData = (_e.target.result.replace("data:application/octet-binary;base64,", ""))
+
+								img.setAttribute("title", i.toString())
+								img.setAttribute("alt", i.toString())
+								img.setAttribute("src", "data:" + type + ";base64," + encodeURIComponent(encodedData))
+								img.addClass("quarter-width")
+								img.onclick = function () {
+									// TODO? deactivate links when not in compact view
+									//if (!that.elements.archiveFileList.hasClass ("compact")) {
+									//	this.nextClass("quarter-width", "half-width", "full-width2", "width-auto")
+									//}
+								}
+								img.onerror = function (__e) {
+									this.setAttribute("alt", "***ERROR*** Could not load image at `" + i + "`")
+									console.warn(__e)
+								}
+								img.onload = function () {
+									let liSpan = document.createElement("SPAN")
+									let liSpanText = document.createTextNode(type.replace("image/", ""))
+
+									liSpan.appendChild(liSpanText)
+									li.appendChild(liSpan)
+
+									liSpan = document.createElement("SPAN")
+									liSpanText = document.createTextNode("(" + this.naturalWidth + "x" + this.naturalHeight + ")")
+
+									liSpan.appendChild(liSpanText)
+									li.appendChild(liSpan)
+								}
+
+								a.appendChild (img)
+								li.appendChild (a)
+								//div.appendChild (img)
+								//div.appendChild (a)
+								//li.appendChild (div)
+							}
+							else if (type.startsWith ("audio/")) {
+								const audio = document.createElement ("AUDIO")
+								const audioSource = document.createElement ("SOURCE")
+								const encodedData = (_e.target.result.replace("data:application/octet-binary;base64,", ""))
+
+								//audioSource.setAttribute("alt", i.toString())
+								audioSource.setAttribute("type", type)
+								audioSource.setAttribute("src", "data:" + type + ";base64," + encodeURIComponent(encodedData))
+								audioSource.onerror = function (__e) {
+									//this.setAttribute("alt", "***ERROR*** Could not load audio source at `" + i + "`")
+									console.warn(__e)
+								}
+								audioSource.onload = function () {
+									const liSpan = document.createElement("SPAN")
+									const liSpanText = document.createTextNode(type.replace("audio/", ""))
+
+									liSpan.appendChild(liSpanText)
+									li.appendChild(liSpan)
+								}
+
+								audio.appendChild (audioSource)
+								li.appendChild (audio)
+							}
+							else {
+								const encodedData = (_e.target.result)
+
+								const decryptedJsonText = that.decode(encodedData, that.getEncryptionKey())
+								if (!decryptedJsonText) {
+									that.setToastText("Failed to decode json.", 2)
+									return
+								}
+
+								const json = JSON.parse(decryptedJsonText)
+								if (json) {
+									let liSpan = document.createElement("SPAN")
+									let pre = document.createElement("PRE")
+									let liSpanText = document.createTextNode(JSON.stringify(json, null, 4))
+
+									pre.appendChild(liSpanText)
+									liSpan.appendChild(pre)
+									li.appendChild (liSpan)
+
+									liSpan = document.createElement("SPAN")
+									liSpanText = document.createTextNode("json")
+
+									liSpan.appendChild(liSpanText)
+									li.appendChild (liSpan)
+								}
+								else {
+									const liSpan = document.createElement("SPAN")
+									const liSpanText = document.createTextNode("unknown file type")
+
+									liSpan.appendChild(liSpanText)
+									li.appendChild (liSpan)
+								}
+							}
+						}
+
+						if (type == "") {
+							reader.readAsText (blob)
+						}
+						else {
+							reader.readAsDataURL (blob)
+						}
+					}
+				},
+				_isLittleEndian: null,
+				isLittleEndian: function () {
+					if (this._isLittleEndian == null) {
+						this._isLittleEndian = this.getLittleEndianness ()
+					}
+					return this._isLittleEndian
+				},
+				getLittleEndianness: function() {
+					const buffer = new ArrayBuffer (4)
+					const uint8Buffer = new Uint8Array (buffer)
+					const uint32Buffer = new Uint32Array (buffer)
+
+					uint8Buffer[0] = 0xAA
+					uint8Buffer[1] = 0xBB
+					uint8Buffer[2] = 0xCC
+					uint8Buffer[3] = 0xDD
+
+					if (uint32Buffer[0] === 0xAABBCCDD) {
+						return false
+					}
+					else if (uint32Buffer[0] === 0xDDCCBBAA) {
+						return true
+					}
+				},
+				getLittleInt32: function(buffer, from) {
+					if (!this.isLittleEndian()) {
+						return this.toInt32Reverse (buffer, from)
+					}
+					else {
+						return this.toInt32 (buffer, from)
+					}
+				},
+				toInt32Reverse: function(buffer, from) {
+					const a = (buffer[from + 0])
+					const b = (buffer[from + 1])
+					const c = (buffer[from + 2])
+					const d = (buffer[from + 3])
+
+					return  (a << 24) | (b << 16) | (c << 8) | (d)
+				},
+				toInt32: function(buffer, from) {
+					const a = (buffer[from + 0])
+					const b = (buffer[from + 1])
+					const c = (buffer[from + 2])
+					const d = (buffer[from + 3])
+
+					return  (a) | (b << 8) | (c << 16) | (d << 24)
+				},
+				onSceneDataChanged: function () {
+					//console.log("scene data is available")
+					//console.dir(this.sceneData)
+
+					// FIXME still a bit buggy?
+					//this.loadAnimationFrames()
+
+					this.dialogueLineIndex = -1
+
+					if (this.sceneData) {
+						const nextDialogueLineIndex = this.getNextDialogueLine()
+						if (nextDialogueLineIndex !== -1) {
+							this.setDialogueLine(nextDialogueLineIndex)
+						}
+					}
+					/*
+					for (let prop in this.sceneData.img_url) {
+						if (this.sceneData.img_url.hasOwnProperty(prop)) {
+							console.log(this.toLocalAssetName(this.sceneData.img_url[prop]))
+						}
+					}
+					*/
+					this.playBgm ()
+				},
+				sceneType: -1,
+				getSceneType: function () {
+					if (!this.sceneData.hasOwnProperty("face")
+						|| !this.sceneData.hasOwnProperty("partsData")
+						|| !this.sceneData.hasOwnProperty("toiki")
+						|| !this.sceneData.hasOwnProperty("spot")
+						|| !this.sceneData.hasOwnProperty("msg")
+						|| !this.sceneData.hasOwnProperty("img_url")
+						|| !this.sceneData.hasOwnProperty("snd_url")) {
+						return -1
+					}
+
+					if (this.sceneData.hasOwnProperty("data_url")
+						&& this.sceneData.hasOwnProperty("stage_count")
+						&& this.sceneData.hasOwnProperty("x_pos")
+						&& this.sceneData.hasOwnProperty("y_pos")
+						&& this.sceneData.hasOwnProperty("face_kind")) {
+						return 1
+					}
+					else if (this.sceneData.hasOwnProperty("bust_param")) {
+						return 2
+					}
+					// unknown type
+					else {
+						return 0
+					}
+				},
+				getFileName: function (url) {
+					if (typeof url !== "string") { console.error("`url` is not a string."); return }
+
+					const lastIndexOfPathSeparator = url.lastIndexOf("/")
+
+					if (lastIndexOfPathSeparator !== -1) {
+						return url.substr(lastIndexOfPathSeparator + 1)
+					}
+					else {
+						return url
+					}
+				},
+				getFileNameWithoutExtension: function (url) {
+					if (typeof url !== "string") { console.error("`url` is not a string."); return }
+
+					const lastIndexOfPathSeparator = url.lastIndexOf("/")
+					const lastIndexOfFileExtensionSeparator = url.lastIndexOf(".")
+
+					if (lastIndexOfPathSeparator !== -1 && lastIndexOfFileExtensionSeparator === -1) {
+						return url.substr(lastIndexOfPathSeparator + 1)
+					}
+					else if (lastIndexOfPathSeparator === -1 && lastIndexOfFileExtensionSeparator !== -1) {
+						return url.substr(0, lastIndexOfFileExtensionSeparator)
+					}
+					else {
+						return url.substr(lastIndexOfPathSeparator + 1, lastIndexOfFileExtensionSeparator - lastIndexOfPathSeparator - 1)
+					}
+				},
+				// FIXME not working yet
+				imageSets: [],
+				// FIXME not working yet
+				loadAnimationFrames: function () {
+					this.imageSets = []
+					this.frameImages = []
+
+					// note that the first frame is index 1 since 0 is the json configuration file.
+					this.loadAnimationFrame(".jpg", 0, this.sceneData.face_kind.length, 0, 10)
+				},
+				animationFrame: 0,
+				// FIXME not working yet
+				loadAnimationFrame: function (fileExt, faceKind, faceKindCount, stageIndex, index) {
+					const that = this
+					const image = new Image()
+					const path = this.sceneData.data_url[faceKind.toString() + stageIndex.toString()]
+
+					//console.log("load:", index, faceKind, stageIndex)
+
+					++that.animationFrame
+
+					image.onload = function () {
+						if (this.width > 4 && this.height > 4) {	// unused set.
+							//console.log("adding ", path + "_" + index + fileExt)
+							
+							if (that.isCanvasSupported) {
+								if (that.elements.canvas.width < image.width) {
+									that.elements.canvas.width = image.width
+									that.elements.canvas2.width = image.width
+								}
+
+								if (that.elements.canvas.height < image.height) {
+									that.elements.canvas.height = image.height
+									that.elements.canvas2.height = image.height
+								}
+							}
+
+							if (faceKind == 0 && stageIndex == 5) {
+								that.frameImages.push(image)
+								that.play()
+							}
+						}
+
+						//console.log(faceKind.toString() + stageIndex.toString() + " - loaded image " + index + " of face " + faceKind + " of stage " + stageIndex)
+						that.loadAnimationFrame(fileExt, faceKind, faceKindCount, stageIndex, index + 10)
+					}
+					image.onerror = function () {
+						const stageCount = that.sceneData.stage_count[faceKind]
+
+						if (stageIndex < stageCount - 1) {
+							//console.log("trying stage " + (stageIndex + 1) + " for face " + faceKind)
+							that.loadAnimationFrame(fileExt, faceKind, faceKindCount, stageIndex + 1, 10)
+						}
+						else if (faceKind < faceKindCount - 1) {
+							//console.log("trying face " + (faceKind + 1) + " for stage " + stageIndex)
+							that.loadAnimationFrame(fileExt, faceKind + 1, faceKindCount, 0, 10)
+						}
+						else {
+							//console.dir(that.frameImages)
+							//console.log("end?", index,  faceKind, stageIndex)
+						}
+					}
+					image.alt = index
+					image.src = this.getDirectoryName(this.toLocalAssetName(path)) + this.getFileNameWithoutExtension(path) + "_" + index.toString() + fileExt
+				},
+				getAssetPath: function (property) {
+					return this.assetPaths[property].replace(/\$\{sceneName\}/gi, this.sceneName)
+				},
+				// --- CG switching/drawing ---
+				drawCanvas: function (canvas, frameIndex) {
+					let context = canvas.getContext("2d")
+					const savedGlobalAlpha = context.globalAlpha
+
+					if (this.sceneType === 1) {
+						this.drawAnimationFrame(context, frameIndex)
+					}
+					else if (this.sceneType === 2) {
+						this.drawParts(context)
+					}
+					this.drawBreath(context)
+					this.drawVignetteOverlay(context)
+					this.drawUnionOverlay(context)
+					this.drawBlurOverlay(context)
+					this.drawPartsBounds(context)
+					this.drawSpeechBubble(context)
+					this.drawSpots(context)
+
+					// REMOVED done with html+css instead
+					/*
+					if (this.settings.showDialogue && this.dialogueLineIndex >= 0 && this.sceneData) {
+						const face = this.sceneData.face[this.dialogueLineIndex]
+						const msg = this.sceneData.msg[this.dialogueLineIndex].replace("#NAME#", this.settings.name)
+
+						const savedFillStyle = context.fillStyle
+
+						context.globalAlpha = 1.0
+						context.font = "18px Georgia"
+						context.fillStyle = "#FFFFFF"
+						context.fillText(msg, 10, 50)
+						context.fillStyle = savedFillStyle
+					}
+					*/
+					context.globalAlpha = savedGlobalAlpha
+				},
+				drawAnimationFrame: function (context, frameIndex) {
+					const frameImage = this.frameImages[frameIndex]
+
+					if (frameImage) {
+						context.drawImage(frameImage, 0, 0)
+					}
+				},
+				drawPart: function (context) {
+					// TODO
+				},
+				drawPartsBounds: function (context) {
+					if (this.settings.showPartsOrigin) {
+						const parts = this.sceneData.partsData
+						const fontSize = 32
+						const savedLineWidth = context.lineWidth
+						const savedStrokeStyle = context.strokeStyle
+						const visualAidOffsetStepX = 0
+						const visualAidOffsetStepY = 16
+						let visualAidOffset = 0
+
+						context.lineWidth = 1
+
+						for (let prop in parts) {
+							if (parts.hasOwnProperty(prop)) {
+								const posX = parseFloat(parts[prop].x) + visualAidOffset * visualAidOffsetStepX
+								const posY = parseFloat(parts[prop].y) + visualAidOffset * visualAidOffsetStepY
+								const color =
+									(parseInt(parts[prop].img_num) === 1) ? "red" :
+									(parseInt(parts[prop].img_num) === 2) ? "green" :
+									(parseInt(parts[prop].img_num) === 3) ? "blue" : "cyan"
+
+								visualAidOffset++
+
+								context.strokeStyle = color
+								context.beginPath()
+								context.arc(posX, posY, 25, 0, Math.PI * 2)
+								context.stroke()
+
+								context.font = fontSize + "px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+								context.fillStyle = "black"
+								context.fillText(prop, posX - context.measureText(prop).width / 2, posY + fontSize / 2)
+							}
+						}
+
+						context.lineWidth = savedLineWidth
+						context.strokeStyle = savedStrokeStyle
+					}
+				},
+				drawBreath: function (context) {
+					if (this.settings.showBreath && this.sceneData) {
+						if (this.breathImageAlpha > 0.0) {
+							const breathImage = this.assets.breathParticle
+
+							if (breathImage) {
+								//toiki.final_toiki_x, toiki.final_toiki_y
+								context.globalAlpha = this.breathImageAlpha
+								context.drawImage(breathImage, this.breathImagePositionX, this.breathImagePositionY)
+								//context.strokeRect(toiki.toiki_x - 4, toiki.toiki_y - 4, 8, 8)	// for debugging
+							}
+						}
+					}
+				},
+				drawVignetteOverlay: function (context) {
+					if (this.settings.showOverlay && this.vignetteOverlayAlpha > 0.0 && this.assets.canvasOverlay) {
+						context.globalAlpha = this.vignetteOverlayAlpha
+						context.drawImage(this.assets.canvasOverlay, 0, 0)
+					}
+				},
+				drawUnionOverlay: function (context) {
+					if (this.settings.showSuperOverlay && this.superOverlayAlpha > 0.0 && this.assets.superOverlay) {
+						context.globalAlpha = this.superOverlayAlpha
+						context.drawImage(this.assets.superOverlay, 0, 0)
+					}
+				},
+				drawBlurOverlay: function (context) {
+					// TODO
+				},
+				drawSpeechBubble: function (context) {
+					if (this.settings.showBubble && this.sceneData && this.sceneType === 1) {
+						const face = this.sceneData.face[this.dialogueLineIndex]
+						const xPositions = this.sceneData.x_pos[face]
+						const yPositions = this.sceneData.y_pos[face]
+
+						if (this.bubbleImageIndex >= 0 && this.bubbleImageAlpha > 0.0) {
+							const bubbleImage = this.assets.onomatopoeia[this.bubbleImageIndex]
+
+							if (bubbleImage) {
+								const savedGlobalAlpha = context.globalAlpha
+								context.globalAlpha = this.bubbleImageAlpha
+
+								context.drawImage(bubbleImage, this.bubbleImagePositionX - bubbleImage.width / 2, this.bubbleImagePositionY - bubbleImage.height / 2)
+
+								context.globalAlpha = savedGlobalAlpha
+							}
+						}
+
+						if (this.settings.showBubbleOrigin) {
+							const parts = this.sceneData.partsData
+
+							const savedLineWidth = context.lineWidth
+							context.lineWidth = 1
+
+							for (let i = 0; i < xPositions.length; ++i) {
+								const posX = parseFloat(parts.face.x) + xPositions[i]
+								const posY = parseFloat(parts.face.y) + yPositions[i]
+
+								context.beginPath()
+								context.arc(posX, posY, 25, 0, Math.PI * 2)
+								context.stroke()
+							}
+
+							context.lineWidth = savedLineWidth
+						}
+					}
+				},
+				drawSpots: function (context) {
+					if (this.settings.showSpots && this.sceneData) {
+						const savedLineWidth = context.lineWidth
+						context.lineWidth = 5
+
+						for (let i = 0; i < this.sceneData.spot.length; ++i) {
+							const spot = this.sceneData.spot[i]
+
+							context.strokeRect(spot.spot_sx, spot.spot_sy, spot.spot_ex - spot.spot_sx, spot.spot_ey - spot.spot_sy)
+						}
+
+						context.lineWidth = savedLineWidth
+					}
+				},
+				setImage: function (frameIndex) {
+					if (!this.isValidState ()) {
+						return
+					}
+
+					if (!this.sceneData || this.dialogueLineIndex < 0 || this.dialogueLineIndex >= this.sceneData.msg.length) {
+						return
+					}
+
+					/*
+					const frameImage = this.imageSets[face][frameIndex]
+					*/
+					if (frameIndex < 0 || frameIndex >= this.frameImages.length) {
+						return
+					}
+
+					let frameImage = this.frameImages[frameIndex]
+					if (!frameImage) {
+						return
+					}
+
+					if (!this.isCanvasSupported) {
+						this.elements.image.src = frameImage.src
+						this.elements.image.alt = frameImage.alt
+						this.elements.image.type = frameImage.type
+						this.elements.image.setAttribute("data-frame-index", frameImage.getAttribute("data-frame-index"))
+						this.elements.image.setAttribute("data-frame-name", frameImage.getAttribute("data-frame-name"))
+					}
+					else {
+						this.drawCanvas(this.elements.canvas, frameIndex)
+						// TODO not working great so far.
+						//this.drawCanvas(this.elements.canvas2, frameIndex)
+					}
+
+					this.frameIndex = frameIndex
+				},
+				getNextImageIndex: function () {
+					if (!this.isValidState ()) {
+						return -1
+					}
+
+					if (this.frameIndex === this.frameImages.length - 1) {
+						if (this.maxPlayCount === 0 || this.playCount < this.maxPlayCount - 1) {
+							return 0
+						}
+						else {
+							return -1
+						}
+					}
+					else {
+						return this.frameIndex + 1
+					}
+				},
+				gotoAndSetNextImage: function () {
+					let nextImageIndex = this.getNextImageIndex()
+
+					if (nextImageIndex !== -1 && nextImageIndex != this.frameIndex) {
+						this.setImage(nextImageIndex)
+					}
+				},
+				play: function (e) {
+					if (!this.isValidState ()) {
+						return
+					}
+
+					if (!this.isCanvasSupported) {
+						if (!this.refreshTimer) {
+							this.refreshTimer = self.setInterval(this.gotoAndSetNextImage.bind(this), this.frameDelay * 1000)
+						}
+					}
+					else {
+						if (!this.refreshTimer) {
+							this.refreshTimer = self.requestAnimationFrame (this.update.bind(this))
+						}
+					}
+				},
+				stop: function (e) {
+					if (!this.isCanvasSupported) {
+						if (this.refreshTimer) {
+							self.clearInterval(this.refreshTimer)
+							this.refreshTimer = null
+						}
+					}
+					else {
+						if (this.refreshTimer) {
+							self.cancelAnimationFrame (this.refreshTimer)
+							this.refreshTimer = 0
+						}
+					}
+				},
+				update: function (timestamp) {
+					if (!this.isCanvasSupported) {
+						return
+					}
+
+					if (!timestamp) {
+						this.startTime = timestamp
+					}
+
+					let elapsedTime = timestamp - this.startTime
+
+					if (elapsedTime >= this.frameDelay * 1000) {
+						this.gotoAndSetNextImage()
+
+						this.startTime = timestamp
+					}
+					
+					this.updateBubble(timestamp)
+					this.updateBreath(timestamp)
+
+					self.requestAnimationFrame(this.update.bind(this))
+				},
+				isValidState: function () {
+					if (!this.frameImages || !this.frameImages.length) {
+						return false
+					}
+					return true
+				},
+				// --- Initialization ---
+				initialize: function () {
+					this.initializeDefaultSettings()
+					this.initializeDocument()
+					this.initializeCanvas()
+					this.initializeAudio()
+					this.initializeDialogue()
+					this.loadSettings()
+					//this.applySettings()
+					this.loadStaticAssets ()
+					this.onViewModeChanged ()
+					this.onLocalize()
+
+					// quick hack for debugging
+					const that = this
+
+					this.elements.assetListRefresh.onclick = function () { that.fillAssetList() }
+					this.elements.gridViewButton.onclick = function () { that.elements.archiveFileList.toggleClass("compact") }
+					this.elements.archiveDownloadAll.onclick = function () { that.downloadAllArchiveFiles (0) }
+				},
+				downloadAllArchiveFiles: function (i) {
+					const a = this.elements.archiveFileList.getElementsByTagName("A")[i];
+
+					if (a != null && a.click != null)
+					{
+						const e = new MouseEvent("click", {
+							"view": window,
+							"bubbles": true,
+							"cancelable": true
+						});
+					
+						a.dispatchEvent (e); 
+					}
+					
+					if (i !== (this.elements.archiveFileList.length - 1))
+					{
+						setTimeout (this.downloadAllArchiveFiles.bind(this), 1000, i + 1);
+					}
+				},
+				onLocalize: function () {
+					this.elements.hintText.innerHTML = this.strings.gui.hints.dropFiles
+					this.elements.loadProgressText.innerHTML = this.strings.gui.progress.loadingNoProgress
+					this.elements.assetListRefresh.innerHTML = this.strings.gui.assetList.refresh
+					this.elements.gridViewButton.innerHTML = this.strings.gui.assetList.compactView
+					this.elements.archiveDownloadAll.innerHTML = this.strings.gui.assetList.downloadAll
+				},
+				// --- Assets ---
+				loadStaticAssets: function () {
+					this.loadSpinner ()
+					this.loadOverlay ()
+					this.loadSuperOverlay ()
+					this.loadBreathParticle ()
+					this.loadOnomatopoeia ()
+					this.loadDialogueBackground ()
+				},
+				getResource: function (name, filter, root) {
+					if (typeof root === "undefined") {
+						root = this.resourcePaths
+					}
+
+					for (let prop in root) {
+						if (root.hasOwnProperty(prop)) {
+							const value = root[prop]
+
+							if (typeof value === "string" && (!filter || filter == prop)) {
+								if (this.getFileNameWithoutExtension(value) == name) {
+									return value
+								}
+							}
+							else {
+								const result = this.getResource(name, filter, value)
+								if (result) {
+									return result
+								}
+							}
+						}
+					}
+
+					return ""
+				},
+				loadDialogueBackground: function () {
+					this.elements.dialogue.style.backgroundImage = "url(" + (this.resourcePaths.lib_swf.images + 303 + ".PNG") + ")"
+				},
+				loadSpinner: function () {
+					const that = this
+					const spinnerImageNames = [ 153, 229, 238, 242, 246, 254, 258, 262, 266, 274, 278, 282, 286, 290, 294, 298, 302 ]
+					const randomIndex = Math.round(Math.random() * (spinnerImageNames.length - 1))
+
+					this.elements.loadProgressSpinner.onerror = function() {
+						that.elements.loadProgressSpinner.hide ()
+					}
+					this.elements.loadProgressSpinner.src = this.resourcePaths.base.images + spinnerImageNames[randomIndex] + ".PNG"
+				},
+				loadOnomatopoeia: function () {
+					this.assets.onomatopoeia = []
+
+					this.loadImageAssets(this.resourcePaths.osawari_ae.images, 14, 18, 20, ".PNG", function (image) {
+							this.assets.onomatopoeia.push(image)
+					}.bind(this))
+				},
+				loadBreathParticle: function () {
+					this.loadImageAssets(this.resourcePaths.osawari_ae.images, 24, ".PNG", function (image) {
+						this.assets.breathParticle = image
+					}.bind(this))
+				},
+				loadSuperOverlay: function () {
+					this.loadImageAssets(this.resourcePaths.osawari_ae.images, 33, ".JPG", function (image) {
+						this.assets.superOverlay = image
+					}.bind(this))
+				},
+				loadOverlay: function () {
+					this.loadImageAssets(this.resourcePaths.osawari_ae.images, 9, ".PNG", function (image) {
+						this.assets.canvasOverlay = image
+					}.bind(this))
+				},
+				loadImageAssets: function () {
+					const that = this
+					const path = arguments[0]
+					const fileExtension = arguments[arguments.length - 2]
+					const onload = arguments[arguments.length - 1]
+
+					for (let i = 1; i < arguments.length - 2; ++i) {
+						let image = new Image ()
+
+						image.onload = function() {
+							onload (image, i)
+						}
+						image.alt = ""
+						image.src = path + arguments[i] + fileExtension
+					}
+				},
+				// --- CG view dragging ---
+				scroll: function() {
+					if (this.deltaX || this.deltaY) {
+						self.scroll (this.deltaX, this.deltaY)
+
+						if (this.deltaX < 0) {
+							this.deltaX = Math.min (0, this.deltaX + 0.1)
+						}
+						else if (this.deltaX > 0) {
+							this.deltaX = Math.max (0, this.deltaX - 0.1)
+						}
+
+						if (this.deltaY < 0) {
+							this.deltaY = Math.min (0, this.deltaY + 0.1)
+						}
+						else if (this.deltaY > 0) {
+							this.deltaY = Math.max (0, this.deltaY - 0.1)
+						}
+					}
+				},
+				// --- CG view zooming ---
+				zoomLevel: 0.750001,
+				zoomOut: function () {
+					this.zoomBy(-0.05, "%")
+				},
+				zoomIn: function () {
+					this.zoomBy(0.05, "%")
+				},
+				zoomBy: function (step, units) {
+					if (!this.elements.canvas.hasClass("full-width") && !this.elements.canvas.hasClass("full-height")) {
+						const zoomPercentage = Math.round((this.zoomLevel + step) * 100)
+
+						if (zoomPercentage < 1 || zoomPercentage > 200) {
+							return
+						}
+						
+						this.zoomLevel += step
+						this.elements.canvas.style.width = zoomPercentage + units
+						this.setToastText(this.strings.gui.status.zoomChange.replace("${percentage}", this.elements.canvas.style.width))
+					}
+				},
+				setZoom: function (width, height) {
+					this.elements.canvas.style.width = width
+					this.elements.canvas.style.height = height
+				},
+				onViewModeChanged: function () {
+					if (this.elements.canvas.hasClass("full-width")) {
+						this.setZoom ("100%", "")
+						this.setToastText(this.strings.gui.status.viewChange.fullWidth, 1)
+					}
+					else if (this.elements.canvas.hasClass("full-height")) {
+						this.setZoom ("", "100%")
+						this.setToastText(this.strings.gui.status.viewChange.fullHeight, 1)
+					}
+					else {
+						const percentage = Math.round(this.zoomLevel * 100) + "%"
+
+						this.setZoom(percentage, "")
+						this.setToastText(this.strings.gui.status.viewChange.customSize.replace("${percentage}", percentage), 1)	//"Custom size (" + percentage + ")."
+					}
+				},
+				nextViewMode: function () {
+					this.elements.canvas.nextClass ("full-width", "full-height", "")
+					this.onViewModeChanged ()
+				},
+				// --- CG playback speed ---
+				increaseFrameDelay: function (isLargeStep) {
+					this.setFrameDelay (Math.min (this.maxFrameDelay, this.frameDelay + (isLargeStep ? 0.01 : 0.001)))
+				},
+				decreaseFrameDelay: function (isLargeStep) {
+					this.setFrameDelay (Math.max (this.minFrameDelay, this.frameDelay - (isLargeStep ? 0.01 : 0.001)))
+				},
+				setFrameDelay: function (value) {
+					this.frameDelay = value
+					this.stop ()
+					this.play ()
+
+					let ratio = ((this.maxFrameDelay - this.frameDelay) / (this.maxFrameDelay - this.minFrameDelay))
+					let percentage = (ratio * 100) + "%"
+
+					this.setToastText(this.strings.gui.status.frameRateChange.replace("${percentage}", Number.parseFloat(percentage).toFixed(1)), 1)
+				},
+				// --- GUI toast ---
+				setToastText: function (text, duration) {
+					if (typeof duration === "undefined") { duration = 1 }
+					this.elements.toast.inlineBlock ()
+					this.elements.toast.fadeIn ()
+					this.elements.toastText.innerHTML = text
+
+					if (this.toastTimer) {
+						self.clearTimeout (this.toastTimer)
+					}
+					this.toastTimer = self.setTimeout (this.hideToast.bind(this), duration * 1000)
+				},
+				hideToast: function () {
+					this.elements.toast.fadeOut ().addClass("animation-duration-short")
+					this.toastTimer = null
+				},
+				// --- GUI toast ---
+				bubbleImageAlpha: 0.0,
+				bubbleImageIndex: -1,
+				bubbleImagePositionX: 0,
+				bubbleImagePositionY: 0,
+				bubbleStartTime: 0.0,
+				bubbleDuration: 0.6,
+				spawnBubble: function () {
+					if (!this.settings.showBubble || !this.isValidState() || this.frameIndex === -1) {
+						return;
+					}
+
+					if (this.isCanvasSupported)
+					{
+						this.bubbleStartTime = 0.0
+						this.bubbleImageAlpha = 1.0
+
+						if (this.sceneData && this.sceneType === 1 && this.dialogueLineIndex >= 0 && this.dialogueLineIndex < this.sceneData.msg.length) {
+							const face = this.sceneData.face[this.dialogueLineIndex]
+							const parts = this.sceneData.partsData
+							const xPositions = this.sceneData.x_pos[face]
+							const yPositions = this.sceneData.y_pos[face]
+							const index = Math.round(Math.random() * (xPositions.length - 1))
+
+							this.bubbleImagePositionX = parseFloat(parts.face.x) + xPositions[index]
+							this.bubbleImagePositionY = parseFloat(parts.face.y) + yPositions[index]
+							this.bubbleImageIndex = Math.round(Math.random() * (this.assets.onomatopoeia.length - 1))
+						}
+					}
+				},
+				updateBubble: function (timestamp) {
+					if (this.isCanvasSupported) {
+						if (this.bubbleImageAlpha > 0.0) {
+							if (this.bubbleStartTime === 0.0) {
+								this.bubbleStartTime = timestamp
+							}
+							this.bubbleImageAlpha = Math.max(0.0, this.bubbleImageAlpha - 0.01)
+						}
+					}
+				},
+				breathImageAlpha: 0.0,
+				breathImageIndex: -1,
+				breathImagePositionX: 0,	// computed once at runtime and stored.
+				breathImagePositionY: 0,	// computed once at runtime and stored.
+				breathVelocityX: 0,
+				breathVelocityY: 0,
+				breathSpeed: 0.5,
+				breathInterval: 2.0,
+				breathStartTime: 0.0,
+				breathDuration: 1.2,
+				isBreathing: false,
+				spawnBreath: function () {
+					if (!this.settings.showBreath || !this.isValidState() || this.frameIndex === -1) {
+						this.isBreathing = false
+						return;
+					}
+
+					const breathImage = this.assets.breathParticle
+
+					if (breathImage) {
+						if (this.isCanvasSupported) {
+							const toiki = this.sceneData.toiki
+							//if (!parseInt(toiki.toiki_flg)) {
+							//	return
+							//}
+							const toikiAngle = (parseFloat(toiki.toiki_dir) * Math.PI) / 180.0
+
+							this.breathImagePositionX = toiki.toiki_x - breathImage.width / 2
+							this.breathImagePositionY = toiki.toiki_y - breathImage.height / 2
+							this.breathVelocityX = Math.cos(toikiAngle) * this.breathSpeed
+							this.breathVelocityY = Math.sin(toikiAngle) * this.breathSpeed
+
+							this.breathImageAlpha = 1.0
+							this.breathStartTime = 0.0
+							this.isBreathing = true
+						}
+					}
+				},
+				updateBreath: function (timestamp) {
+					if (this.isCanvasSupported) {
+						if (this.breathImageAlpha > 0.0) {
+							if (this.breathStartTime === 0.0) {
+								this.breathStartTime = timestamp
+							}
+							
+							if (this.breathImageAlpha < 0.01) {
+								this.breathImageAlpha = 0.0
+								
+								window.setTimeout(function () { this.spawnBreath() }.bind(this), this.breathInterval * 1000)
+							}
+							else {
+								this.breathImageAlpha -= 0.01
+							}
+							this.breathImagePositionX += this.breathVelocityX
+							this.breathImagePositionY += this.breathVelocityY
+						}
+						else if (!this.isBreathing) {
+							this.spawnBreath()
+						}
+					}
+				},
+				indexOfSpot: function (x, y) {
+					if (this.sceneData) {
+						if (!this.sceneData.sortedSpot) {
+							this.sceneData.sortedSpot = JSON.parse(JSON.stringify(this.sceneData.spot))
+
+							this.sceneData.sortedSpot.sort(function (a, b) {
+								const aWidth = a.spot_ex - a.spot_sx
+								const aHeight = a.spot_ey - a.spot_sy
+								const bWidth = b.spot_ex - b.spot_sx
+								const bHeight = b.spot_ey - b.spot_sy
+
+								if (aWidth < bWidth && aHeight < bHeight) {
+									return -1
+								}
+								else if (aWidth > bWidth && aHeight > bHeight) {
+									return 1
+								}
+								else {
+									return 0
+								}
+							})
+						}
+
+						for (let i = 0; i < this.sceneData.sortedSpot.length; ++i) {
+							const spot = this.sceneData.sortedSpot[i]
+
+							if (x > spot.spot_sx && y > spot.spot_sy
+								&& x < spot.spot_ex && y < spot.spot_ey) {
+								return i
+							}
+						}
+					}
+					return -1
+				},
+				getNextDialogueLineCharIndex: function () {
+					if (!this.sceneData || (this.dialogueLineCharIndex >= this.dialogueLine.length)) {
+						return -1
+					}
+
+					let index = this.dialogueLineCharIndex + 1
+					
+					return index
+				},
+				getPreviousDialogueLine: function () {
+					if (this.sceneData && this.dialogueLineIndex > 0) {
+						return this.dialogueLineIndex - 1
+					}
+					else {
+						return -1
+					}
+				},
+				getNextDialogueLine: function () {
+					if (this.sceneData && this.dialogueLineIndex < this.sceneData.msg.length - 1) {
+						return this.dialogueLineIndex + 1
+					}
+					else {
+						return -1
+					}
+				},
+				isLastDialogueLine: function () {
+					if (this.sceneData && this.dialogueLineIndex == this.sceneData.msg.length - 1) {
+						return true
+					}
+					else {
+						return false
+					}
+				},
+				setDialogueLine: function (index) {
+					if (!this.sceneData || index === this.dialogueLineIndex || index < 0 || index >= this.sceneData.msg.length) {
+						return
+					}
+
+					this.dialogueLineIndex = index
+
+					this.onDialogueLineChanged()
+				},
+				dialogueLineCharTimer: null,
+				dialogueLineCharIndex: 0,
+				dialogueLineCharInterval: 0.01,
+				dialogueLine: "",
+				onDialogueLineChanged: function () {
+					if (!this.sceneData) {
+						return
+					}
+
+					const that = this
+					const msg = this.sceneData.msg[this.dialogueLineIndex].replace("#NAME#", this.settings.name)
+					const voice = this.sceneData.snd_url["voice" + this.dialogueLineIndex]
+
+					this.elements.voice.src = this.toLocalAssetName(voice)
+					this.elements.voice.load()
+
+					if (!this.settings.animateDialogueLine) {
+						this.elements.dialogueText.innerHTML = msg
+					}
+					this.elements.dialogue.block()
+					this.elements.dialogue.fadeIn()
+
+					if (this.settings.animateDialogueLine) {
+						this.dialogueLine = msg
+						this.dialogueLineCharIndex = 0
+
+						if (this.dialogueLineCharTimer) {
+							window.clearInterval(this.dialogueLineCharTimer)
+						}
+						this.dialogueLineCharTimer = window.setInterval(function () {
+							const index = that.getNextDialogueLineCharIndex ()
+							if (index !== -1) {
+								that.elements.dialogueText.innerHTML = that.dialogueLine.substr(0, index)
+								that.dialogueLineCharIndex = index
+							}
+							else {
+								window.clearInterval(that.dialogueLineCharTimer)
+								that.dialogueLineCharTimer = null
+							}
+						}.bind(this), this.dialogueLineCharInterval * 1000)
+					}
+
+					if (this.unionFadeTimer) {
+						window.clearTimeout(this.unionFadeTimer)
+						this.unionFadeTimer = null
+					}
+				},
+				union: function () {
+					if (!this.sceneData) {
+						return
+					}
+
+					const that = this
+					const voice = this.sceneData.snd_url.voice_union
+
+					this.elements.voice.src = this.getAssetPath("sounds") + voice.substr(voice.lastIndexOf("/") + 1)
+					this.elements.voice.load()
+
+					this.elements.dialogue.fadeOut()
+
+					if (this.unionFadeTimer) {
+						window.clearTimeout (this.unionFadeTimer)
+					}
+					this.unionFadeTimer = window.setTimeout(function () { that.elements.dialogue.unblock(); that.unionFadeTimer = null }, 1100)
+				},
+				unionFadeTimer: null,
+				playBgm: function () {
+					if (!this.sceneData) {
+						return
+					}
+
+					//const bgm = this.sceneData.snd_url.bgm_010	// hard-coded?
+					const bgm = this.settings.musicType === 0 ? "bgm_010" :
+						this.settings.musicType === 1 ? "bgm_011" :
+						this.settings.musicType === 2 ? "bgm_012" : ""
+
+					if (bgm) {
+						this.elements.music.src = this.getAssetPath("sounds") + bgm.substr(bgm.lastIndexOf("/") + 1)
+						this.elements.music.load()
+					}
+				},
+				scrollMaxSensitivityX: 50,
+				scrollMaxSensitivityY: 50,
+				scrollMinSensitivityX: 1,
+				scrollMinSensitivityY: 1,
+				isScrollInvertedX: false,
+				isScrollInvertedY: false,
+				initializeDocument: function () {
+					document.documentElement.addClass("smoothScrolling")
+
+					this.registerDocumentEventListeners()
+				},
+				initializeCanvas: function () {
+					const canvas = this.isCanvasSupported ? this.elements.canvas : this.elements.image
+
+					canvas.addClass("cursor-grab")
+
+					this.registerCanvasEventListeners()
+				},
+				initializeAudio: function () {
+					this.registerAudioEventListeners ()
+				},
+				initializeDialogue: function () {
+					this.registerDialogueEventListeners()
+				},
+				registerAudioEventListeners: function () {
+					const that = this
+
+					this.elements.music.addEventListener("canplaythrough", function (e) {
+						this.play()
+					})
+
+					this.elements.music.addEventListener("ended", function (e) {
+						this.stop()
+					})
+
+					this.elements.voice.addEventListener("canplaythrough", function (e) {
+						this.play()
+					})
+
+					this.elements.voice.addEventListener("ended", function (e) {
+						this.stop()
+					})
+				},
+				registerDocumentEventListeners: function () {
+					const that = this
+					const canvas = this.isCanvasSupported ? this.elements.canvas : this.elements.image
+
+					document.addEventListener("keydown", function (e) {
+						if (e.keyCode === 81) {	// q
+							that.zoomOut()
+						}
+						else if (e.keyCode === 69) {	// e
+							that.zoomIn()
+						}
+						if (e.keyCode === 32 || e.keyCode === 13) {	// space or enter
+							that.nextViewMode()
+						}
+						else if (e.keyCode === 189 || e.keyCode === 109) {	// minus or keypad minus
+							that.increaseFrameDelay(e.shiftKey)
+						}
+						else if (e.keyCode === 187 || e.keyCode === 107) {	// equals or keypad plus
+							that.decreaseFrameDelay(e.shiftKey)
+						}
+						else if (e.keyCode == 37) {	// left arrow
+							const previousDialogueLineIndex = that.getPreviousDialogueLine()
+
+							if (previousDialogueLineIndex !== -1) {
+								that.setDialogueLine(previousDialogueLineIndex)
+							}
+						}
+						else if (e.keyCode == 39) {	// right arrow
+							if (that.isLastDialogueLine ()) {
+								that.union ()
+							}
+							else {
+								const nextDialogueLineIndex = that.getNextDialogueLine()
+
+								if (nextDialogueLineIndex !== -1) {
+									that.setDialogueLine(nextDialogueLineIndex)
+								}
+							}
+						}
+						else if (e.keyCode == 68) {	// d
+							that.elements.assetListContainer.nextClass("block", "unblock")
+						}
+						else if (e.keyCode == 70) {	// f
+							that.elements.archiveFileListContainer.nextClass("block", "unblock")
+						}
+					})
+
+					document.addEventsListener("mousemove", function (e) {
+						if (that.isMouseDown && e.buttons === 1) {
+							that.scrollSensitivityX = that.zoomLevel * that.scrollMaxSensitivityX / 2.0
+							that.scrollSensitivityY = that.zoomLevel * that.scrollMaxSensitivityY / 2.0
+
+							that.deltaX = that.cursorPositionX - e.clientX
+							that.deltaY = that.cursorPositionY - e.clientY
+							that.deltaX *= that.scrollSensitivityX
+							that.deltaY *= that.scrollSensitivityY
+							that.deltaX *= (that.isScrollInvertedX ? -1 : 1)
+							that.deltaY *= (that.isScrollInvertedY ? -1 : 1)
+
+							window.scrollTo(document.documentElement.scrollLeft - that.deltaX, document.documentElement.scrollTop - that.deltaY)
+							
+							// ensure it's up to date
+							that.cursorPositionX = e.clientX
+							that.cursorPositionY = e.clientY
+						}
+					})
+
+					document.addEventsListener("mousedown", function (e) {
+						
+					})
+
+					document.addEventsListener("mouseup", function (e) {
+						if (that.isMouseDown) {
+							that.isMouseDown = false
+						}
+					})
+
+					document.addEventsListener("drag dragstart dragend dragover dragenter dragleave drop", function (e) {
+						e.preventDefault()
+						e.stopPropagation()
+					})
+
+					document.addEventListener("drop", function (e) {
+						that.loadLocalFiles(e)
+					})
+				},
+				registerCanvasEventListeners: function () {
+					const that = this
+					const canvas = this.isCanvasSupported ? this.elements.canvas : this.elements.image
+					
+					canvas.addEventListener("dblclick", function (e) {
+						//that.nextViewMode ()
+					})
+
+					canvas.addEventListener("mousedown", function (e) {
+						if (e.buttons === 1)
+						{
+							that.cursorPositionX = e.clientX
+							that.cursorPositionY = e.clientY
+							that.isMouseDown = true
+
+							const scaleX = !this.clientWidth ? 1 : this.width / this.clientWidth
+							const scaleY = !this.clientHeight ? 1 : this.height / this.clientHeight
+							const relX = (e.pageX - this.offsetLeft) * scaleX
+							const relY = (e.pageY - this.offsetTop) * scaleY
+							const spotIndex = that.indexOfSpot(relX, relY)
+							
+							if (spotIndex !== -1 || !that.sceneData) {
+								that.spawnBubble()
+							}
+						}
+					})
+				},
+				registerDialogueEventListeners: function () {
+					const that = this
+
+					this.elements.dialogue.addEventListener("mousedown", function (e) {
+						if (that.isLastDialogueLine()) {
+							that.union()
+						}
+						else {
+							const nextDialogueLineIndex = that.getNextDialogueLine()
+
+							if (nextDialogueLineIndex !== -1) {
+								that.setDialogueLine(nextDialogueLineIndex)
+							}
+						}
+					})
+				}
+			}
+
+			document.addEventListener("DOMContentLoaded", function (e) {
+				Program.initialize()
+			});
+
+		//
+		// Extension Methods
+		//
+		{
+			// EventTarget
+			{
+				EventTarget.prototype.addEventsListener = function (s, fn) {
+					s.split(' ').forEach(e => this.addEventListener(e, fn, false))
+
+					return this
+				}
+			}
+
+			// HTMLAudioElement
+			{
+				if (typeof HTMLAudioElement.prototype.stop === "undefined") {
+					HTMLAudioElement.prototype.stop = function () {
+						this.pause()
+						this.currentTime = 0
+						this.src = ""	// NOTE: this may throw an exception but won't trigger a play event.
+					}
+				}
+			}
+
+			// HTMLElement
+			{
+				HTMLElement.prototype.hasClass = function (className) {
+					if (this.classList) {
+						return this.classList.contains(className)
+					}
+					else {
+						return !!this.className.match(new RegExp("(\\s|^)" + className + "(\\s|$)"))
+					}
+				}
+
+				HTMLElement.prototype.addClass = function (className) {
+					if (this.classList) {
+						this.classList.add(className)
+					}
+					else if (!this.hasClass(className)) {
+						if (!this.className.endsWith(" ")) {
+							this.className += " "
+						}
+						this.className += className
+					}
+
+					return this
+				}
+
+				HTMLElement.prototype.toggleClass = function (className) {
+					if (this.hasClass (className)) {
+						this.removeClass (className)
+					}
+					else {
+						this.addClass (className)
+					}
+
+					return this
+				}
+
+				HTMLElement.prototype.nextClass = function () {
+					if (arguments.length < 1) {
+						return this
+					}
+					else if (arguments.length > 1) {
+						for (let i = 0; i < arguments.length - 1; ++i) {
+							if (this.hasClass (arguments[i])) {
+								this.removeClass (arguments[i])
+								if (arguments[i + 1]) {
+									this.addClass (arguments[i + 1])
+								}
+								return this
+							}
+						}
+					}
+
+					if (arguments[0]) {
+						if (this.hasClass(arguments[arguments.length - 1])) {
+							this.removeClass(arguments[arguments.length - 1])
+						}
+						this.addClass (arguments[0])
+					}
+
+					return this
+				}
+				
+				HTMLElement.prototype.removeClass = function (className) {
+					if (this.classList) {
+						this.classList.remove(className)
+					}
+					else if (this.hasClass(className)) {
+						const re = new RegExp("(\\s|^)" + className + "(\\s|$)")
+
+						this.className = this.className.replace(re, " ")
+					}
+
+					return this
+				}
+				
+				HTMLElement.prototype.setClass = function (className, enable) {
+					if (enable) {
+						this.addClass(className)
+					}
+					else {
+						this.removeClass(className)
+					}
+
+					return this
+				}
+				
+				HTMLElement.prototype.show = function () {
+					return this
+						.setClass("hidden", false)
+						.setClass("visible", true)
+				}
+				
+				HTMLElement.prototype.hide = function () {
+					return this
+						.setClass("hidden", true)
+						.setClass("visible", false)
+				}
+				
+				HTMLElement.prototype.unblock = function () {
+					return this
+						.setClass("unblock", true)
+						.setClass("block", false)
+						.setClass("inline-block", false)
+				}
+				
+				HTMLElement.prototype.block = function () {
+					return this
+						.setClass("unblock", false)
+						.setClass("block", true)
+						.setClass("inline-block", false)
+				}
+
+				HTMLElement.prototype.inlineBlock = function () {
+					return this
+						.setClass("unblock", false)
+						.setClass("block", false)
+						.setClass("inline-block", true)
+				}
+
+				HTMLElement.prototype.fadeOut = function () {
+					return this
+						.setClass("fade-out", true)
+						.setClass("fade-in", false)
+				}
+				
+				HTMLElement.prototype.fadeIn = function () {
+					return this
+						.setClass("fade-out", false)
+						.setClass("fade-in", true)
+				}
+			}
+
+
+			// ArrayBuffer
+			{
+				if (typeof Uint8Array.prototype.startsWith === "undefined") {
+					Uint8Array.prototype.startsWith = function (array) {
+						if (this.length < array.length) {
+							return false
+						}
+
+						for (let i = 0; i < array.length; ++i) {
+							if (this[i] !== array[i]) {
+								return false
+							}
+						}
+
+						return true
+					}
+				}
+			}
+		}
+		</script>
+	</body>
+</html>

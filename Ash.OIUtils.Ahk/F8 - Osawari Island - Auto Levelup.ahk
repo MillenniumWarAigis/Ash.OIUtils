@@ -24,7 +24,7 @@ Pause
 		Click %USE_X%, %USE_Y%, 0
 		Sleep 500
 		Click %USE_X%, %USE_Y%, 9
-		Sleep %USE_X_DELAY%
+		Sleep %USE_DELAY%
 
 		Click %CONFIRM_X%, %CONFIRM_Y%, 0
 		Sleep 500
